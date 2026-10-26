@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+      return request.auth.token.role;
+    }
+
+    function getUserOrg() {
+      return request.auth.token.organisationId;
+    }
+
+    function isPlatformAdmin() {
+      return isAuthenticated() && getUserRole() == 'platform_admin';
+    }
+
+    function isOrgAdmin(orgId) {
+      return isAuthenticated() && (getUserRole() == 'platform_admin' || (getUserRole() == 'org_admin' && getUserOrg() == orgId));
+    }
+
+    function isDonorOrViewer() {
+      return getUserRole() == 'viewer';
+    }
+
+    // Projects: Donors and enumerators cannot mutate
+    match /projects/{projectId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && !isDonorOrViewer() && (getUserRole() in ['platform_admin', 'org_admin', 'project_manager']);
+      allow update: if isAuthenticated() && !isDonorOrViewer() && (getUserRole() in ['platform_admin', 'org_admin', 'project_manager']);
+      allow delete: if isPlatformAdmin() || (getUserRole() == 'org_admin');
+    }
+
+    // Indicators: Read allowed for all authenticated; mutations forbidden for donors & enumerators
+    match /indicators/{indicatorId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && !isDonorOrViewer() && (getUserRole() in ['platform_admin', 'org_admin', 'meal_officer', 'project_manager']);
+    }
+
+    // Data Points: Raw metrics
+    match /dataPoints/{dataPointId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && !isDonorOrViewer();
+      allow update: if isAuthenticated() && !isDonorOrViewer() && (getUserRole() in ['platform_admin', 'org_admin', 'meal_officer', 'reviewer']);
+      allow delete: if isAuthenticated() && (getUserRole() in ['platform_admin', 'org_admin', 'meal_officer']);
+    }
+
+    // Form Submissions: Anti-Self-Approval Enforcement
+    match /submissions/{submissionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && !isDonorOrViewer();
+      allow update: if isAuthenticated() && !isDonorOrViewer() &&
+        // Self-approval prohibition
+        !(request.resource.data.status == 'approved' && resource.data.enumeratorId == request.auth.uid) &&
+        (getUserRole() in ['platform_admin', 'org_admin', 'meal_officer', 'reviewer']);
+      allow delete: if isPlatformAdmin();
+    }
+
+    // Safeguarding & Feedback Complaints: Strict access restrictions on sensitive records
+    match /complaints/{complaintId} {
+      allow read: if isAuthenticated() && (
+        !resource.data.isSafeguardingSensitive ||
+        getUserRole() in ['platform_admin', 'org_admin', 'meal_officer']
+      );
+      allow create: if isAuthenticated(); // Anyone can submit a complaint
+      allow update: if isAuthenticated() && (
+        getUserRole() in ['platform_admin', 'org_admin', 'meal_officer']
+      );
+      allow delete: if isPlatformAdmin();
+    }
+
+    // Risk Register
+    match /risks/{riskId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && !isDonorOrViewer() && (getUserRole() in ['platform_admin', 'org_admin', 'project_manager', 'meal_officer']);
+    }
+
+    // Evaluations
+    match /evaluations/{evaluationId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && !isDonorOrViewer() && (getUserRole() in ['platform_admin', 'org_admin', 'project_manager', 'meal_officer']);
+    }
+
+    // Published Reports
+    match /reports/{reportId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && !isDonorOrViewer() && (getUserRole() in ['platform_admin', 'org_admin', 'project_manager', 'meal_officer']);
+    }
+
+    // Audit Logs: Append-only immutable log (cannot be updated or deleted by anyone)
+    match /auditLogs/{logId} {
+      allow read: if isAuthenticated() && (getUserRole() in ['platform_admin', 'org_admin', 'meal_officer']);
+      allow create: if isAuthenticated();
+      allow update: if false; // IMMUTABLE
+      allow delete: if false; // IMMUTABLE
+    }
+  }
+}

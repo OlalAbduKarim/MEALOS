@@ -1,0 +1,10 @@
+{
+  "name": "Comprehensive M&E Platform",
+  "description": "A full-featured web application for Monitoring & Evaluation, encompassing project planning, data collection, management, analysis, reporting, learning, and task management. Built with React, TypeScript, and Tailwind CSS.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "prompt": "",
+  "majorCapabilities": []
+}

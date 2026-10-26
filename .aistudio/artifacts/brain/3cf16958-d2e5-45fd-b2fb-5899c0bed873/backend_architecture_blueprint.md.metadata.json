@@ -1,0 +1,5 @@
+{
+  "summary":  "Complete architectural blueprint and backend specification for MEAL Insights OS, detailing all domain models, 40+ REST API endpoints, RBAC security matrix, data lifecycle, indicator calculation engine, safeguarding access partitioning, and offline sync mechanics.",
+  "updatedAt":  "2026-10-26T18:27:46.843599916Z",
+  "userFacing":  true
+}

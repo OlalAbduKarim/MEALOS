@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comprehensive M&E Platform | MEAL Insights OS</title>
+  <meta name="description" content="A full-featured web application for Monitoring, Evaluation, Accountability, and Learning (MEAL), encompassing project planning, data collection, management, analysis, reporting, and learning.">
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              DEFAULT: '#0D47A1', // Dark Blue
+              light: '#1976D2',   // Medium Blue
+              dark: '#002171',    // Very Dark Blue
+            },
+            secondary: {
+              DEFAULT: '#FF8F00', // Amber
+              light: '#FFC046',
+              dark: '#C56000',
+            },
+            accent: {
+              DEFAULT: '#4CAF50', // Green
+            },
+            neutral: {
+              100: '#F5F5F5', // very light gray
+              200: '#EEEEEE',
+              300: '#E0E0E0',
+              400: '#BDBDBD',
+              500: '#9E9E9E',
+              600: '#757575',
+              700: '#616161',
+              800: '#424242',
+              900: '#212121', // very dark gray / almost black
+            }
+          }
+        }
+      }
+    }
+  </script>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.5.1"
+  }
+}
+</script>
+  <style>
+    /* Basic scrollbar styling for webkit browsers */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #BDBDBD; /* neutral-400 */
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #9E9E9E; /* neutral-500 */
+    }
+    body {
+      overscroll-behavior-y: none; /* Prevents pull-to-refresh on mobile and elastic scroll on macOS */
+    }
+  </style>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-neutral-100 text-neutral-800">
+  <div id="root" class="flex flex-col min-h-screen" style="z-index: 1;"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

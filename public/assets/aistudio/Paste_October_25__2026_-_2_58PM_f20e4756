@@ -1,0 +1,1485 @@
+# MASTER BUILD PROMPT: COMPREHENSIVE MEAL MANAGEMENT PLATFORM
+
+## 1. YOUR ROLE AND MISSION
+
+Act as a senior full-stack software architect, lead React/TypeScript engineer, database architect, M&E specialist, evaluation researcher, statistician, data-quality expert, UX designer, cybersecurity engineer, and QA engineer.
+
+Your mission is to transform my existing Monitoring and Evaluation (M&E) Indicator Tracker into a comprehensive, production-ready Monitoring, Evaluation, Accountability and Learning (MEAL) management platform.
+
+This is an existing application, not a new project. You must inspect the existing codebase, preserve working functionality, improve its architecture where justified, complete unfinished modules, and integrate all the tools into a coherent system.
+
+Do not simply add navigation items, dashboards, static cards, mock tables, placeholder pages, decorative buttons, or simulated functionality. Every feature presented as operational must have a functioning end-to-end workflow, appropriate backend persistence, validation, error handling, and access control.
+
+The goal is to build a platform that can support real development programmes, NGOs, government institutions, international organisations, research projects, humanitarian programmes, implementing partners, M&E consultants, and social-impact organisations.
+
+The application must support the complete programme lifecycle:
+
+PLAN → DESIGN → COLLECT → VALIDATE → MONITOR → ANALYSE → EVALUATE → REPORT → LEARN → IMPROVE.
+
+The platform should be modular, extensible, secure, responsive, accessible, maintainable, and capable of growing into a multi-organisation software product.
+
+## 2. EXISTING TECHNOLOGY AND NON-NEGOTIABLE CONSTRAINTS
+
+The existing application uses:
+
+- React 19.
+- TypeScript.
+- Tailwind CSS.
+- Lucide-style icons.
+- Firebase Firestore for persistent storage.
+- Google Gemini through the Google GenAI SDK for AI-assisted insights.
+- A desktop ribbon-style navigation system organised into application, project, M&E framework, data lifecycle, insights, learning, workflow, and administration areas.
+
+Begin by auditing the actual repository. Confirm the framework, routing, installed packages, Firestore configuration, data model, environment variables, existing components, and current functionality rather than assuming the documentation perfectly reflects the code.
+
+### Preservation requirements
+
+1. Preserve the existing application, its visual identity, working features, and navigation wherever practical.
+2. Do not replace the existing frontend unnecessarily.
+3. Do not delete or overwrite existing project records without an explicit migration and recovery plan.
+4. Do not remove Firebase merely because another database is available.
+5. Assess whether Firestore can adequately support the proposed data model and analytical workloads.
+6. Recommend PostgreSQL/Supabase or a dedicated backend only where the benefits justify the migration or additional complexity.
+7. If a database migration is recommended, document the reasons, target schema, migration procedure, validation process, rollback strategy, costs and security implications before executing it.
+8. Keep existing APIs and data structures backward compatible where feasible.
+9. Do not hard-code credentials, secrets, administrator passwords, API keys or privileged operations in client-side code.
+10. Never claim a feature works unless it has been implemented and tested.
+
+The final product must remain a web application usable on desktop computers, laptops, tablets and smartphones.
+
+## 3. INITIAL CODEBASE AUDIT
+
+Before substantial implementation, inspect the entire existing project.
+
+Produce an inventory covering:
+
+- Existing routes and navigation.
+- Components and page structure.
+- Database collections, documents and relationships.
+- Authentication and session management.
+- Current project and indicator workflows.
+- Indicator calculations and threshold rules.
+- LogFrame, Theory of Change and Results Chain persistence.
+- PIRS implementation.
+- Data-point submissions and status updates.
+- CSV export.
+- AI integration.
+- Placeholder screens.
+- Existing bugs, duplicated code, dead code and incomplete workflows.
+- Security and data-isolation weaknesses.
+- Mobile responsiveness and accessibility.
+- Test coverage and deployment configuration.
+
+Classify every module as:
+
+A. Fully functional and verified.
+B. Partially functional.
+C. Interface-only or placeholder.
+D. Missing.
+E. Implemented but requiring redesign or security correction.
+
+Create a dependency-aware implementation plan. Identify the modules that must be completed first because other features depend on them.
+
+After this audit, begin implementation incrementally. Do not stop after producing the audit and leave the requested work unfinished.
+
+## 4. APPLICATION-WIDE ARCHITECTURE
+
+Organise the system into clear, maintainable modules.
+
+Use reusable UI components, typed domain models, centralised validation, consistent error handling, and a well-defined service or API layer.
+
+Separate:
+
+- Presentation and frontend state.
+- Domain/business logic.
+- Authentication and authorisation.
+- Database access.
+- File storage.
+- Reporting and export services.
+- Statistical and data-quality services.
+- AI services.
+- Background tasks and notifications.
+- Third-party integrations.
+
+Business rules must not exist only in React components.
+
+Critical calculations, permissions, approvals, imports, and data mutations must be validated and enforced by trusted backend logic and database security policies.
+
+Use appropriate transactions, idempotency controls, pagination, indexes, retry logic and concurrency handling.
+
+Establish consistent loading, empty, error, success, validation, offline and permission-denied states throughout the application.
+
+## 5. MULTI-ORGANISATION AND MULTI-PROJECT MANAGEMENT
+
+Build a real organisation-aware system.
+
+Support:
+
+- Platform administration.
+- Organisation registration and configuration.
+- Organisation profiles and branding.
+- Organisation membership and invitations.
+- Organisation-specific settings and reporting preferences.
+- Multiple projects per organisation.
+- Multiple teams and implementing partners.
+- Project creation, editing, archiving and authorised deletion.
+- Project codes, descriptions, locations, dates, sectors and thematic areas.
+- Project status and lifecycle stages.
+- Project budgets and funding sources where required.
+- Project managers and designated M&E officers.
+- Project documentation.
+- Project milestones and implementation schedules.
+- Project switching and portfolio-wide dashboards.
+- Cross-project comparisons for authorised users.
+- Project cloning and reusable templates.
+- Project closure and archival procedures.
+- Data export and controlled deletion.
+
+Every project must belong to the correct organisation or explicitly authorised ownership structure.
+
+Never expose one organisation's confidential information to another organisation through direct database queries, exports, search, AI requests, file URLs or API endpoints.
+
+Create a configurable organisational hierarchy supporting headquarters, regional offices, districts, field offices, projects and implementing partners where applicable.
+
+Avoid forcing a single hierarchy on every organisation.
+
+### Demo and onboarding behaviour
+
+Remove automatic production seed data and fake operational records.
+
+Provide an optional, clearly labelled demonstration workspace with synthetic data for testing, onboarding and product demonstrations. Demo data must be isolated from real organisational records and must never be mistaken for verified programme results.
+
+Provide a guided first-use process that helps an organisation create its profile, set up a project, define a results framework and configure its first indicators.
+
+## 6. PROJECT DESIGN AND RESULTS FRAMEWORKS
+
+Develop a complete M&E framework design workspace.
+
+### 6.1 LogFrame / Logical Framework
+
+Support a configurable hierarchy including:
+
+- Goal or impact.
+- Outcomes.
+- Outputs.
+- Activities.
+- Inputs and resources where applicable.
+
+For each level, support:
+
+- Statement or description.
+- Associated indicators.
+- Baselines and targets.
+- Means of verification.
+- Assumptions.
+- Risks.
+- Responsible parties.
+- Reporting frequency.
+- Data sources.
+- Links to related results.
+
+Allow users to create, edit, reorder, link, validate, version and export frameworks.
+
+Provide a readable tabular view and a visual framework view.
+
+Allow reusable templates for sectors such as health, education, agriculture, governance, livelihoods, humanitarian response and community development.
+
+Templates must be customisable and must not impose inappropriate indicators on every project.
+
+### 6.2 Theory of Change
+
+Build a functional Theory of Change editor covering:
+
+Inputs → Activities → Outputs → Outcomes → Impact.
+
+Support:
+
+- Interactive nodes and connections.
+- Assumptions and contextual factors.
+- Causal pathways.
+- External influences.
+- Risks and dependencies.
+- Evidence supporting causal assumptions.
+- Editable annotations.
+- Saving and version history.
+- Export to PDF or image.
+- Links to LogFrame elements and indicators.
+
+### 6.3 Results Chain
+
+Support a configurable results chain with short-, medium- and long-term outcomes, outputs, activities and inputs.
+
+Allow relationships between results, indicators and assumptions.
+
+### 6.4 Other framework support
+
+Where appropriate, provide configurable mappings or templates for:
+
+- Results-based management.
+- Outcome mapping.
+- Outcome harvesting.
+- Contribution analysis.
+- Programme logic models.
+- Theory-based evaluation.
+
+Do not require every project to use all methodologies.
+
+## 7. INDICATOR MANAGEMENT ENGINE
+
+This is a central module. Implement it as a robust domain service rather than a collection of independent dashboard calculations.
+
+### 7.1 Indicator creation
+
+Each indicator should support, as applicable:
+
+- Unique ID and code.
+- Name.
+- Detailed definition.
+- Rationale.
+- Result level.
+- Indicator type.
+- Unit of measurement.
+- Sector and thematic category.
+- Baseline value and baseline date.
+- Target value.
+- Target period.
+- Indicator directionality.
+- Calculation formula.
+- Numerator and denominator definitions.
+- Data sources.
+- Collection method.
+- Frequency.
+- Responsible data collector.
+- Responsible reviewer.
+- Means of verification.
+- Disaggregation dimensions.
+- Data-quality requirements.
+- Reporting instructions.
+- Known limitations.
+- Threshold configuration.
+- Metadata and tags.
+- PIRS reference.
+- Linked project framework elements.
+- Status and approval state.
+
+Support numeric, percentage, ratio, rate, count, currency, duration, index, ordinal, qualitative and other appropriately defined indicator types.
+
+Allow organisations to create custom types only when their validation, aggregation and reporting behaviour is explicitly defined.
+
+### 7.2 Indicator directionality and progress
+
+Support at least:
+
+- Higher-is-better indicators.
+- Lower-is-better indicators.
+- Indicators with a target range.
+- Indicators with a fixed threshold.
+- Binary or milestone indicators.
+- Qualitative indicators with defined assessment rubrics.
+- Indicators where progress percentage is not meaningful.
+- Indicators that are not applicable to a particular period.
+
+Do not apply one universal formula to every indicator.
+
+For a simple higher-is-better indicator, target achievement may be calculated as actual divided by target, multiplied by 100.
+
+For a lower-is-better indicator, progress may instead be measured as the reduction from baseline toward the target.
+
+Handle edge cases such as zero baselines, zero targets, negative values, missing values, targets that cross zero, reversed targets and incompatible units.
+
+Do not silently clamp values above 100% or turn invalid calculations into apparently valid results.
+
+Clearly distinguish:
+
+- Percentage of target achieved.
+- Progress from baseline toward target.
+- Percentage change from baseline.
+- Period-specific achievement.
+- Cumulative achievement.
+- Remaining gap to target.
+
+Document the calculation method for every supported indicator type.
+
+### 7.3 Target and reporting management
+
+Support:
+
+- Baseline and endline values.
+- Annual targets.
+- Quarterly and monthly targets.
+- Custom reporting periods.
+- Cumulative targets.
+- Period-specific targets.
+- Milestones.
+- Target revisions with approval and version history.
+- Historical performance comparisons.
+- Target allocation across locations, partners and beneficiary groups.
+
+Provide configurable status thresholds for On Track, At Risk, Off Track, No Data and Not Applicable.
+
+Allow a project to configure its own rules.
+
+Evaluate performance against the target applicable to the selected reporting date rather than comparing every interim result against the final project target.
+
+### 7.4 Indicator dashboard
+
+Display:
+
+- Latest approved value.
+- Latest submission value where authorised.
+- Baseline.
+- Current period target.
+- End-of-project target.
+- Actual versus planned performance.
+- Achievement and variance.
+- Historical trend.
+- Latest collection date.
+- Data freshness.
+- Verification status.
+- Disaggregation availability.
+- Performance status.
+- Responsible officer.
+- Next reporting deadline.
+
+Provide filters, sorting, search, drill-down and exports.
+
+## 8. PIRS — PERFORMANCE INDICATOR REFERENCE SHEETS
+
+Implement a complete, editable PIRS module.
+
+Include appropriate fields such as:
+
+- Indicator name and code.
+- Definition and rationale.
+- Unit of measure.
+- Directionality.
+- Result level.
+- Calculation method.
+- Numerator and denominator.
+- Data sources.
+- Data collection method.
+- Collection frequency.
+- Reporting frequency.
+- Baseline and targets.
+- Disaggregation.
+- Responsible parties.
+- Data quality controls.
+- Means of verification.
+- Known limitations.
+- Assumptions.
+- Reporting and aggregation rules.
+- Data management responsibilities.
+- Approval and version history.
+
+Support the existing three archetypes:
+
+- Numeric output indicator.
+- Percentage outcome indicator.
+- Qualitative process indicator.
+
+Provide reusable templates and customisable fields.
+
+Where a donor or methodology specifies a required template, allow the organisation to configure it. Do not claim a template is universally compliant merely because it contains a certain number of fields.
+
+Allow PIRS documents to be generated, reviewed, approved and exported.
+
+## 9. DATA COLLECTION FORM BUILDER
+
+Replace the existing placeholder with a functional form-building and submission system.
+
+### Form designer
+
+Support drag-and-drop field configuration for:
+
+- Short text.
+- Long text.
+- Integer and decimal values.
+- Dates and times.
+- Single choice.
+- Multiple choice.
+- Dropdowns.
+- Yes/no.
+- Checkboxes.
+- Ratings and defined scales.
+- Calculated fields.
+- Repeating groups.
+- Tables.
+- File attachments.
+- Image uploads.
+- Location fields.
+- Signatures where legally and operationally appropriate.
+- Consent questions.
+- Enumerator and respondent metadata.
+
+Allow:
+
+- Required and optional fields.
+- Range and format validation.
+- Conditional visibility.
+- Skip logic.
+- Repeating sections.
+- Calculated expressions.
+- Cross-field validation.
+- Instructions and help text.
+- Field-level identifiers.
+- Multilingual labels.
+- Form versioning.
+- Draft, published and archived states.
+- Preview on desktop and mobile.
+- Submission limits and collection schedules.
+
+Use a safe expression system for calculations. Never execute arbitrary user-entered JavaScript.
+
+### Submission lifecycle
+
+Implement:
+
+Draft → Submitted → Validating → Under Review → Approved or Returned → Resubmitted → Approved.
+
+Support rejection with reasons, comments, reviewer assignment, resubmission and complete history.
+
+Preserve original submissions and track corrections.
+
+### Form-to-indicator mapping
+
+Allow form fields or validated aggregate calculations to map to one or more indicators.
+
+Do not treat every individual survey response as an indicator result.
+
+Define how raw submissions are transformed into approved reporting aggregates, including numerator/denominator calculations, deduplication and disaggregation.
+
+## 10. DATA COLLECTION AND REPORTING CALENDAR
+
+Build a central data collection scheduler.
+
+Support:
+
+- Recurring collection schedules.
+- Indicator-specific reporting frequencies.
+- Project-specific reporting calendars.
+- Assignments to staff or partners.
+- Due dates.
+- Submission deadlines.
+- Review deadlines.
+- Reminder rules.
+- Escalation rules.
+- Completion tracking.
+- Overdue tracking.
+- Rescheduling with reasons.
+- Holiday and time-zone awareness where relevant.
+
+Display calendar, list and dashboard views.
+
+Provide a clear collection status for every assigned item.
+
+Do not mark a task completed merely because a form was opened or saved as a draft.
+
+## 11. FIELDWORK AND MOBILE DATA COLLECTION
+
+Create a mobile-friendly field collection experience.
+
+Support:
+
+- Responsive forms.
+- Save and resume.
+- Draft submissions.
+- Camera and file attachments.
+- Optional GPS capture.
+- Enumerator identification.
+- Collection timestamps.
+- Consent capture where required.
+- Local validation.
+- Submission status.
+- Upload progress.
+- Sync status.
+- Safe retries.
+- Duplicate-submission protection.
+- Offline drafts and queued submissions where required.
+- Conflict detection and resolution.
+
+If implementing offline functionality, design a proper local storage, synchronisation, encryption and conflict-handling strategy. Do not claim offline support unless it has been tested with the device disconnected from the network.
+
+Protect locally stored sensitive information and clear it according to the applicable retention and synchronisation rules.
+
+## 12. DATA IMPORT, EXPORT AND INTEROPERABILITY
+
+### CSV and Excel import
+
+Implement a real import wizard:
+
+1. Upload a file.
+2. Inspect columns and sample rows.
+3. Select the target project and dataset.
+4. Map source columns to system fields.
+5. Preview transformations.
+6. Validate data types and required fields.
+7. Detect duplicates and invalid values.
+8. Display row-level errors.
+9. Allow correction or controlled rejection.
+10. Confirm the import.
+11. Record the import history and results.
+
+Support large files through appropriate processing and batching.
+
+Avoid partial imports that leave data in an inconsistent state.
+
+Support CSV and XLSX export with clear field names and reporting-period information.
+
+### External integrations
+
+Provide a secure, modular integration layer for:
+
+- KoboToolbox.
+- ODK Central.
+- Google Sheets where useful.
+- Power BI or other analytical tools through controlled data access.
+- REST APIs.
+- Webhooks.
+- Other authorised systems.
+
+Support connection configuration, authentication, permissions, sync status, retries, error logs and conflict handling.
+
+Never expose private API credentials to the browser.
+
+Do not mark an integration as operational until a real connection has been tested.
+
+## 13. DATA QUALITY ASSESSMENT AND CLEANING
+
+Build a real data-quality workspace.
+
+### Automated checks
+
+Identify:
+
+- Missing required values.
+- Duplicate records.
+- Invalid data types.
+- Out-of-range values.
+- Inconsistent dates.
+- Unexpected category values.
+- Impossible combinations.
+- Duplicate beneficiaries where identifiers are lawfully available.
+- Numerator/denominator inconsistencies.
+- Unusual statistical outliers.
+- Suspicious changes between periods.
+- Inconsistencies between submissions and reported aggregates.
+- Late submissions.
+- Incomplete supporting evidence.
+
+Distinguish hard validation errors from warnings requiring human review.
+
+Do not automatically delete or alter observations merely because they are statistical outliers.
+
+### Data cleaning workflow
+
+Support:
+
+- Flagging records.
+- Filtering and inspecting observations.
+- Correcting values with justification.
+- Comparing original and corrected values.
+- Recording who changed a value and when.
+- Reviewing and approving corrections.
+- Re-running quality checks.
+- Recording exclusions and their reasons.
+- Exporting quality-assessment results.
+
+### Data Quality Assessment
+
+Provide configurable DQA criteria covering:
+
+- Validity.
+- Accuracy.
+- Completeness.
+- Consistency.
+- Timeliness.
+- Uniqueness.
+- Reliability and traceability.
+
+Allow projects to configure scoring methods and weights.
+
+Show the criteria, evidence, score, limitations and remediation actions. Do not present an arbitrary quality score as an objective measure of data truth.
+
+## 14. STATISTICAL ANALYSIS AND RESEARCH WORKSPACE
+
+Develop a modular analysis engine.
+
+Start with:
+
+- Counts and frequencies.
+- Mean, median and mode.
+- Minimum and maximum.
+- Variance and standard deviation.
+- Percentages, proportions and rates.
+- Cross-tabulations.
+- Disaggregated summaries.
+- Time-series analysis.
+- Before-and-after comparisons.
+- Missing-data summaries.
+- Distribution plots and histograms.
+- Confidence intervals where appropriate.
+- Survey response summaries.
+
+Plan for advanced capabilities including:
+
+- Sampling design documentation.
+- Sample-size calculations.
+- Survey weighting.
+- Regression.
+- Correlation.
+- Hypothesis tests.
+- Statistical significance.
+- Qualitative thematic analysis.
+- Impact evaluation methods.
+
+Implement advanced methods only with appropriate assumptions, input validation, documented limitations and reproducible calculations.
+
+Distinguish descriptive monitoring from causal inference.
+
+Do not claim that a programme caused an observed change unless the evaluation design and evidence justify that conclusion.
+
+Provide downloadable analysis datasets and clear descriptions of each calculation.
+
+## 15. DISAGGREGATION AND EQUITY ANALYSIS
+
+Build a flexible disaggregation engine.
+
+Allow dimensions such as:
+
+- Sex or gender categories appropriate to the project.
+- Age groups.
+- Disability status.
+- Geographic location.
+- Beneficiary category.
+- Socioeconomic group.
+- Service type.
+- Implementing partner.
+- Other project-defined categories.
+
+Support multiple dimensions simultaneously where meaningful.
+
+Implement numerator/denominator aggregation rules so percentages are recalculated correctly rather than averaged incorrectly.
+
+For example, when aggregating district-level percentages, use the appropriate combined numerator and denominator where available.
+
+Prevent double-counting when records overlap across categories.
+
+Provide safeguards against exposing small groups or identifying individuals through sensitive breakdowns.
+
+## 16. INTERACTIVE DASHBOARDS AND PERFORMANCE MONITORING
+
+Build distinct dashboards for:
+
+- Organisation leadership.
+- Project managers.
+- M&E teams.
+- Data collectors.
+- Reviewers.
+- Analysts.
+- Donors and authorised viewers.
+- Platform administrators.
+
+Include:
+
+- Portfolio overview.
+- Project performance.
+- Indicator status.
+- Target versus actual.
+- Historical trends.
+- Reporting compliance.
+- Collection progress.
+- Data quality.
+- Upcoming deadlines.
+- Underperforming indicators.
+- Risks and corrective actions.
+- Evaluation progress.
+- Lessons learned.
+- Geographic coverage where applicable.
+
+Allow filters by organisation, project, location, period, indicator, partner and status.
+
+Support drill-down from portfolio to project, indicator, reporting period and permitted source evidence.
+
+Ensure all dashboard figures come from real, consistently calculated data.
+
+## 17. GIS AND SPATIAL MONITORING
+
+Implement an optional geographic analysis module using an appropriate mapping library.
+
+Support:
+
+- Project locations.
+- Administrative boundaries.
+- Geotagged field submissions.
+- Facility locations.
+- Implementation coverage.
+- Indicator results by location.
+- Location filters.
+- Geographic comparisons.
+- Layer visibility.
+- Map legends.
+- Location-specific detail views.
+- Optional downloadable spatial data.
+
+Allow projects to use Uganda's administrative hierarchy while supporting other countries and custom geographic structures.
+
+Capture coordinates only when needed and authorised.
+
+Protect sensitive locations, especially those associated with vulnerable populations or safeguarding cases.
+
+Use a real mapping service or map library, and document any API keys, licensing, rate limits and operating costs.
+
+## 18. EVALUATION MANAGEMENT
+
+Create a dedicated evaluation workspace.
+
+Support:
+
+- Evaluation registration and planning.
+- Evaluation type.
+- Terms of reference.
+- Evaluation purpose and scope.
+- Evaluation questions.
+- Evaluation criteria.
+- Evaluation matrix.
+- Evaluation design and methodology.
+- Sampling strategy.
+- Data collection instruments.
+- Evaluator assignments.
+- Timelines and deliverables.
+- Evaluation budget where applicable.
+- Literature and document review.
+- Findings and supporting evidence.
+- Conclusions.
+- Recommendations.
+- Management responses.
+- Recommendation owners.
+- Implementation deadlines.
+- Follow-up and closure.
+
+Provide templates for baseline, midterm, endline, process, outcome, impact, performance and thematic evaluations.
+
+Where relevant, support OECD DAC criteria:
+
+- Relevance.
+- Coherence.
+- Effectiveness.
+- Efficiency.
+- Impact.
+- Sustainability.
+
+Allow evaluation teams to explain which criteria apply and why.
+
+Keep findings linked to evidence, and record uncertainty and methodological limitations.
+
+## 19. ACCOUNTABILITY, BENEFICIARY FEEDBACK AND SAFEGUARDING
+
+Build a controlled accountability module for programmes that require it.
+
+Support:
+
+- Feedback and complaints channels.
+- Complaint categories.
+- Anonymous submissions where appropriate.
+- Reference numbers.
+- Acknowledgement and status tracking.
+- Assignment to authorised staff.
+- Investigation notes.
+- Resolution actions.
+- Escalation.
+- Restricted case access.
+- Response deadlines.
+- Closure and feedback to the complainant where safe.
+- Aggregated accountability reporting.
+
+Provide an optional safeguarding workflow for sensitive reports.
+
+Sensitive cases must have stricter access rules than ordinary project records. Do not expose sensitive reports in standard project dashboards, ordinary search, exports or AI prompts.
+
+Do not require users to record identifiable beneficiary information unnecessarily.
+
+Include consent management, retention rules, restricted attachments, secure referrals and appropriate access logging.
+
+Do not claim legal or safeguarding compliance without a documented assessment against the applicable requirements.
+
+## 20. STAKEHOLDER MANAGEMENT AND QUALITATIVE LEARNING
+
+Extend the existing Success Stories and Lessons Learned features.
+
+### Success stories
+
+Support:
+
+- Story title.
+- Project and location.
+- Intervention.
+- Context and challenge.
+- Reported outcomes.
+- Evidence and source records.
+- Quotes.
+- Consent and publication permissions.
+- Supporting photographs and documents.
+- Review and approval.
+- Publication status.
+- Links to relevant indicators and evaluations.
+
+### Lessons learned
+
+Support:
+
+- Context.
+- Problem or observation.
+- Evidence.
+- Root-cause analysis.
+- Lessons.
+- Recommendations.
+- Responsible owner.
+- Planned actions.
+- Deadline.
+- Follow-up status.
+- Replication across projects.
+
+### Qualitative analysis
+
+Provide structured support for:
+
+- Interview records.
+- Focus-group discussions.
+- Open-ended survey responses.
+- Thematic coding.
+- Codebooks.
+- Themes and subthemes.
+- Evidence excerpts.
+- Findings.
+- Links to evaluation questions.
+- Reviewer comments.
+
+Support anonymisation and restricted access where needed.
+
+## 21. RISK, ASSUMPTIONS AND ADAPTIVE MANAGEMENT
+
+Build a risk and assumptions register linked to the Theory of Change, results framework, indicators and work plans.
+
+For each record, support:
+
+- Description.
+- Category.
+- Likelihood.
+- Impact.
+- Rating.
+- Early-warning indicators.
+- Mitigation strategy.
+- Responsible owner.
+- Review date.
+- Status.
+- Evidence.
+- Related indicators and activities.
+- Follow-up actions.
+
+Support configurable risk matrices and escalation rules.
+
+When indicators fall behind, allow users to investigate, record reasons, assign actions and monitor whether the response improves performance.
+
+Do not automatically treat correlation between a risk and an indicator as proof of causation.
+
+## 22. TASKS, WORKFLOWS AND NOTIFICATIONS
+
+Implement a central task and workflow engine.
+
+Support:
+
+- Task creation.
+- Assignment.
+- Priority.
+- Due dates.
+- Comments.
+- Attachments.
+- Dependencies.
+- Status.
+- Review.
+- Approval.
+- Reassignment.
+- Recurring tasks where appropriate.
+- Escalation.
+- Completion evidence.
+
+Link tasks to projects, indicators, forms, submissions, reports, risks and evaluation recommendations.
+
+Build an in-app notification centre for:
+
+- Assigned tasks.
+- Approaching deadlines.
+- Overdue submissions.
+- Data requiring review.
+- Returned submissions.
+- Approval requests.
+- Performance status changes.
+- Risk reviews.
+- Report deadlines.
+- Comments and mentions.
+
+Add configurable email notifications where appropriate.
+
+Prevent duplicate notifications and allow users to configure non-critical preferences.
+
+## 23. REPORT GENERATION AND DOCUMENT MANAGEMENT
+
+Build a complete reporting engine.
+
+### Report types
+
+Support:
+
+- Monthly reports.
+- Quarterly reports.
+- Semiannual reports.
+- Annual reports.
+- Project completion reports.
+- Donor reports.
+- Organisation-wide portfolio reports.
+- Indicator performance reports.
+- Data quality reports.
+- Evaluation reports.
+- Custom reports.
+
+### Report content
+
+Allow users to include:
+
+- Cover page and organisation branding.
+- Executive summary.
+- Project background and objectives.
+- Results framework.
+- Indicator performance.
+- Baseline, target, actual, variance and status.
+- Disaggregated results.
+- Charts and tables.
+- Trend analysis.
+- Data quality limitations.
+- Risks and corrective actions.
+- Success stories.
+- Lessons learned.
+- Evaluation findings.
+- Recommendations.
+- Sources and methodological notes.
+- Approval information.
+
+### Report operations
+
+Implement:
+
+- PDF generation.
+- Excel exports.
+- CSV exports.
+- Chart and table exports.
+- Reusable templates.
+- Custom reporting periods.
+- Custom filters.
+- Draft and final states.
+- Review and approval.
+- Version history.
+- Report archiving.
+- Download permissions.
+- Reproducibility through recorded data snapshots or equivalent versioned inputs.
+
+An approved report should retain its historical values even if the underlying project data later changes. Make it possible to regenerate a report using a newer data snapshot when required.
+
+## 24. AI-ASSISTED M&E INTELLIGENCE
+
+Improve the existing Gemini integration into a controlled M&E intelligence service.
+
+Potential capabilities:
+
+- Explain indicator performance.
+- Summarise approved reporting-period results.
+- Identify unusual trends.
+- Flag missing or inconsistent data.
+- Summarise authorised qualitative findings.
+- Draft report narratives.
+- Suggest evaluation questions.
+- Identify recurring implementation challenges.
+- Propose corrective actions.
+- Summarise lessons across permitted projects.
+- Help users understand M&E terminology and methods.
+- Generate preliminary analytical interpretations.
+
+### AI safeguards
+
+1. Ground project-specific claims in authorised data.
+2. Retrieve data only within the current user's permissions.
+3. Clearly distinguish facts, interpretations, assumptions and recommendations.
+4. Cite the relevant indicator, reporting period or source record within the application where possible.
+5. State when data is missing or insufficient.
+6. Never invent indicator values, quotations, field findings or evaluation conclusions.
+7. Never silently modify official data.
+8. Never approve submissions or reports autonomously.
+9. Require human review before publication.
+10. Minimise personal and sensitive data sent to external AI services.
+11. Never expose API keys in client-side code.
+12. Handle model errors, quotas, latency and untrusted document content safely.
+13. Record the model, prompt version and relevant input-data snapshot when necessary for reproducibility.
+14. Clearly label generated content as AI-assisted.
+
+Use structured outputs and validation for machine-readable responses.
+
+Do not assume that an AI recommendation is statistically valid merely because it sounds plausible.
+
+## 25. USER MANAGEMENT, ROLES AND PERMISSIONS
+
+Implement genuine role-based access control with optional fine-grained permissions.
+
+Suggested roles:
+
+- Platform administrator.
+- Organisation administrator.
+- Project manager.
+- M&E manager.
+- Data collector or enumerator.
+- Data reviewer.
+- Data analyst.
+- Evaluation specialist.
+- Implementing partner.
+- Donor or read-only viewer.
+
+Allow multiple roles where appropriate.
+
+Permissions should be configurable for actions such as:
+
+- View.
+- Create.
+- Edit.
+- Submit.
+- Review.
+- Approve.
+- Reject.
+- Export.
+- Delete.
+- Manage users.
+- Manage integrations.
+- Access sensitive records.
+
+Enforce permissions on the server and at the database layer, not only through frontend route guards.
+
+Implement organisation and project membership checks, secure invitations, account recovery, session management and optional multi-factor authentication for privileged roles.
+
+Use least-privilege defaults.
+
+Users must not be able to gain access to restricted data by guessing document IDs, manipulating requests, changing URLs or invoking APIs directly.
+
+## 26. AUDIT TRAILS, BACKUPS AND RECOVERY
+
+Implement auditable records of important operations.
+
+Record, as appropriate:
+
+- Actor.
+- Action.
+- Timestamp.
+- Affected record.
+- Relevant before-and-after values.
+- Reason for changes.
+- Approval events.
+- Export activity.
+- Permission changes.
+- Administrative actions.
+- Import and synchronisation events.
+
+Protect audit records against ordinary user modification and deletion.
+
+Avoid logging passwords, secrets or unnecessary sensitive information.
+
+Implement:
+
+- Automated backups.
+- Documented recovery procedures.
+- Defined recovery objectives.
+- Restore testing.
+- Data export for authorised organisations.
+- Retention and deletion policies.
+- Recovery from accidental project or dataset changes.
+- Migration and rollback procedures.
+
+Do not claim a backup strategy is operational until backups and restoration have been tested.
+
+## 27. API AND INTEGRATION MANAGEMENT
+
+Create a documented, secure API layer if supported by the chosen architecture.
+
+Support appropriate endpoints for:
+
+- Organisations.
+- Projects.
+- Frameworks.
+- Indicators.
+- Targets.
+- Reporting periods.
+- Forms.
+- Submissions.
+- Approved results.
+- Tasks.
+- Evaluations.
+- Reports.
+
+Include:
+
+- Authentication.
+- Authorisation.
+- Input validation.
+- Pagination.
+- Filtering.
+- Rate limits.
+- Consistent error responses.
+- Versioning.
+- Idempotency for suitable write operations.
+- Webhook signing and verification where applicable.
+- Integration logs.
+
+Never expose unrestricted database access or administrative credentials to external clients.
+
+## 28. INTERNATIONALISATION AND ACCESSIBILITY
+
+Support a foundation for multilingual use.
+
+Allow organisation-specific settings for:
+
+- Language.
+- Time zone.
+- Date format.
+- Number format.
+- Currency.
+- Units.
+- Reporting conventions.
+
+Plan for English and future additional languages, including translation of navigation, validation messages, forms and reports.
+
+Build accessible interfaces with:
+
+- Keyboard navigation.
+- Visible focus states.
+- Semantic controls.
+- Accessible labels.
+- Screen-reader support.
+- Sufficient contrast.
+- Clear validation messages.
+- Responsive layouts.
+- Charts with accessible summaries.
+- Usable touch targets.
+
+Do not rely on colour alone to communicate indicator status.
+
+## 29. MOBILE-FIRST RESPONSIVE DESIGN
+
+Preserve the desktop ribbon interface where it works well, but adapt navigation appropriately for mobile devices.
+
+On phones:
+
+- Use compact navigation or a mobile menu.
+- Prevent horizontal overflow.
+- Make forms easy to complete.
+- Use readable tables or responsive alternatives.
+- Provide accessible charts and filters.
+- Optimise large datasets.
+- Support appropriate touch interactions.
+- Display upload and synchronisation status.
+- Keep critical actions easy to find.
+
+Test on common mobile viewport sizes and desktop layouts.
+
+Implement Progressive Web App capabilities if justified by the offline and installation requirements.
+
+Do not confuse a responsive layout with fully functional offline operation.
+
+## 30. DATA MODEL AND DATABASE DESIGN
+
+Design a consistent domain model that supports the features above.
+
+At minimum, consider entities for:
+
+- Organisations.
+- Organisation memberships.
+- Users and roles.
+- Projects.
+- Project memberships.
+- Locations and administrative areas.
+- Funding sources.
+- Results frameworks and versions.
+- Framework nodes and relationships.
+- Indicators and indicator versions.
+- PIRS documents.
+- Reporting periods.
+- Targets.
+- Disaggregation dimensions and categories.
+- Forms, fields and form versions.
+- Submissions and submission answers.
+- Review and approval records.
+- Raw observations.
+- Approved indicator results.
+- Aggregation definitions and results.
+- Data quality checks.
+- Data correction records.
+- Tasks and notifications.
+- Risks and assumptions.
+- Evaluations and evaluation questions.
+- Evaluation findings and recommendations.
+- Success stories.
+- Lessons learned.
+- Feedback and restricted accountability cases.
+- Reports and report versions.
+- Attachments.
+- Integration configurations and sync logs.
+- Audit events.
+- AI analysis records where necessary.
+
+Use stable identifiers, explicit relationships, timestamps, appropriate indexes and validation constraints.
+
+Avoid storing all data in one oversized project document or one unstructured collection.
+
+Separate raw collected data from validated observations and approved reporting aggregates.
+
+Store sensitive information separately where necessary, with stricter access controls.
+
+Use appropriate transactions or equivalent consistency controls when related records must change together.
+
+Design migrations that preserve existing data and allow verification before old structures are retired.
+
+## 31. SECURITY AND PRIVACY REQUIREMENTS
+
+Implement security throughout the application.
+
+Include:
+
+- Secure authentication.
+- Server-side authorisation.
+- Organisation and project isolation.
+- Firestore Security Rules or equivalent database policies.
+- Input validation.
+- Safe file uploads.
+- Private file storage and short-lived authorised access links where appropriate.
+- Protection against common web vulnerabilities.
+- Secure session and token handling.
+- Secrets management.
+- Rate limiting.
+- Dependency updates.
+- Security logging.
+- Data minimisation.
+- Consent and retention controls where applicable.
+- Restricted handling of sensitive data.
+- Secure exports.
+- Tested backup and recovery.
+
+Do not assume that a Firebase API key is a secret or that possessing one grants safe access. Correctly configure authentication, security rules and service permissions.
+
+Never put administrative service credentials in a browser bundle.
+
+Assess applicable data protection requirements for the operating countries and the organisations using the system. Do not claim compliance without evidence.
+
+## 32. PERFORMANCE AND RELIABILITY
+
+Design for growth in organisations, projects, users, indicators, submissions and historical records.
+
+Implement:
+
+- Paginated queries.
+- Efficient database indexes.
+- Search and filtering.
+- Lazy loading where appropriate.
+- Background processing for expensive jobs.
+- Safe retry behaviour.
+- Idempotent processing.
+- Request timeouts.
+- Error reporting.
+- Observability.
+- Appropriate caching.
+- Storage limits and upload validation.
+- Rate limiting.
+- Database query optimisation.
+
+Do not load every submission, project or indicator into the browser at once.
+
+Do not perform heavy statistical calculations or report generation synchronously in the user interface when a background job is more appropriate.
+
+Use cost-conscious architecture and document expected third-party service costs.
+
+## 33. TESTING AND QUALITY ASSURANCE
+
+Build an automated test suite.
+
+### Unit tests
+
+Test:
+
+- Indicator calculations.
+- Higher-is-better and lower-is-better rules.
+- Percentage and rate calculations.
+- Target aggregation.
+- Missing-data handling.
+- Disaggregation.
+- Validation.
+- Data quality rules.
+- Statistical calculations.
+- Permission decisions.
+
+### Integration tests
+
+Test:
+
+- Database persistence.
+- Authentication.
+- Organisation isolation.
+- Form submissions.
+- Review and approval.
+- Imports and exports.
+- File access.
+- Notifications.
+- Report generation.
+- AI permission filtering.
+- Integration failures and retries.
+
+### End-to-end tests
+
+Test complete workflows, including:
+
+1. Register or sign in.
+2. Create an organisation and project.
+3. Build a results framework.
+4. Create an indicator and PIRS.
+5. Set a reporting period and target.
+6. Create and publish a collection form.
+7. Submit data as a field officer.
+8. Review and return a submission.
+9. Correct and resubmit.
+10. Approve the submission.
+11. Update the approved indicator results.
+12. Analyse performance.
+13. Generate and approve a report.
+14. Verify the audit trail.
+15. Verify that an unauthorised user cannot access restricted data.
+
+Test mobile layouts, keyboard accessibility, failure states and offline synchronisation if implemented.
+
+Do not rely solely on successful compilation as evidence that a feature works.
+
+## 34. ACCEPTANCE CRITERIA
+
+A module is complete only when:
+
+- Its interface is implemented.
+- Its backend operations are implemented.
+- Data persists and can be retrieved.
+- Validation is functional.
+- Permissions are enforced.
+- Loading, empty and error states work.
+- Related modules receive consistent updates.
+- Critical edge cases are handled.
+- Automated tests pass.
+- The feature has been manually or automatically verified end to end.
+- Relevant documentation has been updated.
+
+A button that leads to an informational screen does not satisfy an operational feature requirement.
+
+A dashboard populated with hard-coded numbers does not satisfy a reporting requirement.
+
+A frontend-only permission check does not satisfy a security requirement.
+
+A download link that produces an invalid or empty file does not satisfy an export requirement.
+
+An AI recommendation unsupported by the available evidence must not be presented as an established finding.
+
+## 35. IMPLEMENTATION METHOD
+
+Implement the system in dependency-aware phases.
+
+### Phase 1: Audit and foundation
+
+- Audit the existing repository.
+- Preserve existing data.
+- Correct critical defects.
+- Establish the domain model.
+- Implement authentication and organisation isolation.
+- Build permission enforcement.
+- Define indicator calculation services.
+- Establish testing and migration procedures.
+
+### Phase 2: Core M&E operations
+
+- Enhance indicators and PIRS.
+- Implement reporting periods and targets.
+- Complete frameworks.
+- Build the form builder.
+- Implement submissions, validation and approvals.
+- Add collection schedules, tasks and notifications.
+
+### Phase 3: Data quality and reporting
+
+- Complete imports and exports.
+- Implement data quality assessment.
+- Add statistical summaries and disaggregation.
+- Build report generation.
+- Implement report versions and approvals.
+- Add audit trails.
+
+### Phase 4: Programme intelligence
+
+- Implement evaluation management.
+- Add risks and corrective actions.
+- Enhance qualitative learning.
+- Add accountability and stakeholder feedback.
+- Complete GIS and external integrations where required.
+
+### Phase 5: Advanced capabilities
+
+- Add offline collection.
+- Improve statistical methods.
+- Extend AI assistance.
+- Add advanced portfolio analysis.
+- Optimise performance and operating costs.
+- Complete security and deployment verification.
+
+Do not postpone essential security work until the final phase.
+
+Within each phase, implement a complete vertical slice: interface, backend, data persistence, permissions, validation, tests and documentation.
+
+Avoid leaving half-built features across every module.
+
+## 36. REQUIRED DELIVERABLES
+
+Provide and maintain:
+
+1. Codebase audit.
+2. Feature gap matrix.
+3. System architecture document.
+4. Database schema and relationship diagram.
+5. API specification.
+6. Authentication and permission matrix.
+7. Data migration plan where needed.
+8. Indicator calculation specification.
+9. Data lifecycle and approval workflow diagrams.
+10. Integration specifications.
+11. Testing plan and test results.
+12. Deployment instructions.
+13. Environment variable documentation.
+14. Backup and recovery instructions.
+15. Security review checklist.
+16. User and administrator documentation.
+17. Implementation status report.
+18. Known limitations and future improvements.
+
+Keep documentation aligned with the actual implementation.
+
+## 37. FINAL DIRECTIVE
+
+Start by examining the existing repository and identifying the current state of every module.
+
+Then implement the platform incrementally, preserving working functionality and resolving the highest-risk architectural issues first.
+
+Do not stop after creating a plan, mockup, prototype, schema, or set of placeholder pages.
+
+Do not attempt an uncontrolled rewrite of the entire codebase in one operation.
+
+Do not invent completed functionality, test results, successful integrations or security guarantees.
+
+If a feature requires external credentials, paid services, unavailable infrastructure or a decision that cannot safely be inferred, implement the parts that can be completed, document the dependency, and request the specific missing information.
+
+When implementation is complete, provide an honest feature-by-feature status report identifying what is fully operational, what is partially implemented, what requires configuration, and what remains outstanding.
+
+The objective is a reliable, integrated MEAL platform in which every major module works with the others and every official result can be traced to its data, methodology, reporting period and approval history.

@@ -1,0 +1,119 @@
+import React, { useState } from 'react';
+import { Project, AuditLog } from '../../types';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
+import { TerminalIcon, DownloadIcon } from '../../constants';
+import { mealStorage } from '../../services/mealStorage';
+
+interface AuditTrailViewProps {
+  activeProject: Project | null;
+}
+
+export const AuditTrailView: React.FC<AuditTrailViewProps> = ({ activeProject }) => {
+  const [logs] = useState<AuditLog[]>(() => {
+    return mealStorage.getAuditLogs(mealStorage.getActiveOrganisationId(), activeProject?.id);
+  });
+
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredLogs = logs.filter(l => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return l.action.toLowerCase().includes(term) ||
+           l.entityType.toLowerCase().includes(term) ||
+           l.details.toLowerCase().includes(term) ||
+           l.actorRole.toLowerCase().includes(term);
+  });
+
+  const handleExportLogs = () => {
+    const csvContent = 'data:text/csv;charset=utf-8,' + [
+      ['Timestamp', 'Actor Role', 'Action', 'Entity Type', 'Entity ID', 'Details'].join(','),
+      ...logs.map(l => [
+        `"${l.timestamp}"`,
+        `"${l.actorRole}"`,
+        `"${l.action}"`,
+        `"${l.entityType}"`,
+        `"${l.entityId}"`,
+        `"${l.details.replace(/"/g, '""')}"`
+      ].join(','))
+    ].join('\n');
+
+    const encoded = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encoded);
+    link.setAttribute('download', `Audit_Trail_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white p-5 rounded-lg border border-neutral-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <span className="p-2 bg-slate-100 text-slate-700 rounded-md">
+            <TerminalIcon className="w-6 h-6" />
+          </span>
+          <div>
+            <h2 className="text-xl font-bold text-neutral-800">Immutable Audit Trail & System Activity</h2>
+            <p className="text-xs text-neutral-500">
+              Verifiable event log recording user mutations, approvals, DQA corrections, and compliance events.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <input 
+            type="text" 
+            placeholder="Search action, entity or role..."
+            className="px-3 py-1.5 border border-neutral-300 rounded text-xs focus:ring-2 focus:ring-primary w-56"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Button size="sm" variant="secondary" onClick={handleExportLogs} leftIcon={<DownloadIcon className="w-3.5 h-3.5" />}>
+            Export Audit CSV
+          </Button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border border-neutral-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-neutral-50 text-neutral-600 text-xs uppercase font-semibold border-b">
+              <tr>
+                <th className="py-2.5 px-4">Timestamp</th>
+                <th className="py-2.5 px-4">Actor Persona</th>
+                <th className="py-2.5 px-4">Action</th>
+                <th className="py-2.5 px-4">Entity</th>
+                <th className="py-2.5 px-4">Audit Details</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100 font-mono text-xs">
+              {filteredLogs.map(l => (
+                <tr key={l.id} className="hover:bg-neutral-50">
+                  <td className="py-2.5 px-4 text-neutral-400">
+                    {new Date(l.timestamp).toLocaleString()}
+                  </td>
+                  <td className="py-2.5 px-4 font-sans font-semibold text-primary">
+                    {l.actorRole.replace('_', ' ')}
+                  </td>
+                  <td className="py-2.5 px-4 font-sans font-bold text-neutral-800">
+                    {l.action}
+                  </td>
+                  <td className="py-2.5 px-4 text-neutral-500">
+                    {l.entityType}
+                  </td>
+                  <td className="py-2.5 px-4 font-sans text-neutral-700 max-w-md truncate">
+                    {l.details}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AuditTrailView;
