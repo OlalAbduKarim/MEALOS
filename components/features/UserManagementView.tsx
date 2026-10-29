@@ -1,22 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserProfile, UserRole } from '../../types';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { UsersIcon, ShieldCheckIcon, PlusIcon } from '../../constants';
 import { mealStorage } from '../../services/mealStorage';
+import { mealApiClient } from '../../services/apiClient';
 
 interface UserManagementViewProps {
   currentRole: UserRole;
   onRoleChange: (newRole: UserRole) => void;
 }
-
-const DEFAULT_USERS: UserProfile[] = [
-  { id: 'u_1', name: 'Dr. David Ssemwogerere', email: 'david.s@ghea.org', role: 'meal_officer', organisationId: 'org_gh_health', activeProjectIds: ['proj_001'] },
-  { id: 'u_2', name: 'Grace Auma', email: 'grace.a@ghea.org', role: 'enumerator', organisationId: 'org_gh_health', activeProjectIds: ['proj_001'] },
-  { id: 'u_3', name: 'Fatima Al-Mansoor', email: 'fatima.m@ghea.org', role: 'reviewer', organisationId: 'org_gh_health', activeProjectIds: ['proj_001'] },
-  { id: 'u_4', name: 'Jean-Paul Kamau', email: 'jp.kamau@ghea.org', role: 'project_manager', organisationId: 'org_gh_health', activeProjectIds: ['proj_001'] },
-  { id: 'u_5', name: 'System Security Lead', email: 'security@ghea.org', role: 'platform_admin', organisationId: 'org_gh_health', activeProjectIds: [] },
-];
 
 const ROLE_PERMISSIONS: Record<UserRole, { label: string; desc: string; permissions: string[] }> = {
   platform_admin: {
@@ -62,26 +55,49 @@ const ROLE_PERMISSIONS: Record<UserRole, { label: string; desc: string; permissi
 };
 
 export const UserManagementView: React.FC<UserManagementViewProps> = ({ currentRole, onRoleChange }) => {
-  const [users, setUsers] = useState<UserProfile[]>(DEFAULT_USERS);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<UserRole>('enumerator');
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  const handleAddUser = () => {
+  const loadUsers = async () => {
+    setIsLoading(true);
+    try {
+      const res = await mealApiClient.getUserProfiles();
+      if (res.data) {
+        setUsers(res.data);
+      }
+    } catch (e) {
+      console.warn('Error loading user profiles:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const handleAddUser = async () => {
+    setValidationError(null);
     if (!name.trim() || !email.trim()) {
-      alert('User name and email are required.');
+      setValidationError('User full name and institutional email are required.');
       return;
     }
     const newUser: UserProfile = {
       id: `u_${Date.now()}`,
-      name,
-      email,
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
       role,
-      organisationId: mealStorage.getActiveOrganisationId(),
-      activeProjectIds: ['proj_001']
+      organisationId: mealStorage.getActiveOrganisationId() || 'org_default',
+      activeProjectIds: []
     };
-    setUsers(prev => [...prev, newUser]);
+
+    await mealApiClient.saveUserProfile(newUser);
+    setUsers(prev => [newUser, ...prev]);
     setIsAdding(false);
     setName('');
     setEmail('');
@@ -99,7 +115,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ currentR
             <div>
               <h2 className="text-xl font-bold text-neutral-800">User Management & Role-Based Access Control (RBAC)</h2>
               <p className="text-xs text-neutral-500">
-                Configure organizational roles, granular permissions, field enumerator access, and persona testing.
+                Authorized user roster from Supabase PostgreSQL database, granular permissions, and access assignment.
               </p>
             </div>
           </div>
@@ -113,15 +129,15 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ currentR
       {/* Active Persona Tester Banner */}
       <div className="bg-neutral-900 text-white p-4 rounded-xl shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400">Interactive Role Persona Switcher</span>
-          <h3 className="text-base font-bold text-white">Current Active Persona: <span className="text-emerald-400">{ROLE_PERMISSIONS[currentRole]?.label}</span></h3>
+          <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400">Institutional Role Matrix</span>
+          <h3 className="text-base font-bold text-white">Current Active Persona: <span className="text-emerald-400">{ROLE_PERMISSIONS[currentRole]?.label || currentRole}</span></h3>
           <p className="text-xs text-neutral-300 mt-0.5 max-w-xl">
             {ROLE_PERMISSIONS[currentRole]?.desc}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-xs text-neutral-400 font-semibold">Simulate Role:</label>
+          <label className="text-xs text-neutral-400 font-semibold">Active Role:</label>
           <select 
             className="bg-neutral-800 text-white border border-neutral-700 rounded px-3 py-1.5 text-xs font-semibold focus:ring-2 focus:ring-emerald-400"
             value={currentRole}
@@ -136,45 +152,59 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ currentR
 
       {/* Team Roster Table */}
       <div className="bg-white rounded-lg border border-neutral-200 shadow-sm overflow-hidden">
-        <div className="p-4 bg-neutral-50 border-b border-neutral-200">
-          <h3 className="text-sm font-bold text-neutral-800">Team Roster ({users.length})</h3>
+        <div className="p-4 bg-neutral-50 border-b border-neutral-200 flex justify-between items-center">
+          <h3 className="text-sm font-bold text-neutral-800">Registered Team Profiles ({users.length})</h3>
+          {isLoading && <span className="text-xs text-neutral-500">Syncing with Supabase...</span>}
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-neutral-100 text-neutral-600 text-xs uppercase font-semibold border-b">
-              <tr>
-                <th className="py-2.5 px-4">User</th>
-                <th className="py-2.5 px-4">Email</th>
-                <th className="py-2.5 px-4">Role Assigned</th>
-                <th className="py-2.5 px-4">Role Permissions Summary</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100 text-xs">
-              {users.map(u => {
-                const rInfo = ROLE_PERMISSIONS[u.role];
-                return (
-                  <tr key={u.id} className="hover:bg-neutral-50">
-                    <td className="py-3 px-4 font-bold text-neutral-800">
-                      {u.name}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-neutral-500">
-                      {u.email}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 rounded font-semibold bg-blue-50 text-primary">
-                        {rInfo?.label || u.role}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-neutral-600">
-                      {rInfo?.permissions.join(' · ')}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {users.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-neutral-100 text-neutral-600 text-xs uppercase font-semibold border-b">
+                <tr>
+                  <th className="py-2.5 px-4">User</th>
+                  <th className="py-2.5 px-4">Email</th>
+                  <th className="py-2.5 px-4">Role Assigned</th>
+                  <th className="py-2.5 px-4">Role Permissions Summary</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100 text-xs">
+                {users.map(u => {
+                  const rInfo = ROLE_PERMISSIONS[u.role];
+                  return (
+                    <tr key={u.id} className="hover:bg-neutral-50">
+                      <td className="py-3 px-4 font-bold text-neutral-800">
+                        {u.name}
+                      </td>
+                      <td className="py-3 px-4 font-mono text-neutral-500">
+                        {u.email}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="px-2 py-0.5 rounded font-semibold bg-blue-50 text-primary">
+                          {rInfo?.label || u.role}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-neutral-600">
+                        {rInfo?.permissions?.join(' · ') || 'Standard access'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-12 px-4">
+            <UsersIcon className="mx-auto h-12 w-12 text-neutral-300 mb-2" />
+            <h4 className="text-sm font-bold text-neutral-700">No Team Members Registered Yet</h4>
+            <p className="text-xs text-neutral-500 max-w-sm mx-auto mt-1 mb-4">
+              Registered users in Supabase will appear here. You can also invite a team member to provision their profile.
+            </p>
+            <Button size="sm" onClick={() => setIsAdding(true)} leftIcon={<PlusIcon />}>
+              Invite First Team Member
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Invite Member Modal */}
@@ -182,6 +212,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ currentR
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
             <h3 className="text-base font-bold text-neutral-800">Invite New Team Member</h3>
+
+            {validationError && (
+              <div className="p-2.5 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                {validationError}
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-semibold text-neutral-700 mb-1">Full Name *</label>
@@ -220,7 +256,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ currentR
 
             <div className="flex justify-end gap-2 pt-3 border-t">
               <Button size="sm" variant="secondary" onClick={() => setIsAdding(false)}>Cancel</Button>
-              <Button size="sm" onClick={handleAddUser}>Send Invitation</Button>
+              <Button size="sm" onClick={handleAddUser}>Save Profile to Supabase</Button>
             </div>
           </div>
         </div>

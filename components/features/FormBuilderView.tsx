@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Project, Indicator, CollectionForm, FormField, FormFieldType, FormSubmission } from '../../types';
-import { PlusIcon, EditIcon, DeleteIcon, ClipboardListIcon, DevicePhoneMobileIcon, CheckIcon } from '../../constants';
+import { PlusIcon, EditIcon, DeleteIcon, ClipboardListIcon, DevicePhoneMobileIcon } from '../../constants';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
-import Badge from '../ui/Badge';
-import { mealStorage } from '../../services/mealStorage';
+import { mealApiClient } from '../../services/apiClient';
+import { accessControl } from '../../services/authService';
 
 interface FormBuilderViewProps {
   activeProject: Project | null;
@@ -29,35 +29,77 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
   projectIndicators = [],
   onNavigateToSubmissions
 }) => {
-  const [forms, setForms] = useState<CollectionForm[]>(() => {
-    return mealStorage.getForms(activeProject?.id);
-  });
-  
+  const [forms, setForms] = useState<CollectionForm[]>([]);
+  const [submissionsCountMap, setSubmissionsCountMap] = useState<Record<string, number>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Form Editor Modal state
   const [isEditing, setIsEditing] = useState(false);
   const [editingForm, setEditingForm] = useState<CollectionForm | null>(null);
-  
-  // Field Editor Sub-Modal
+  const [formModalError, setFormModalError] = useState<string | null>(null);
+  const [isSavingForm, setIsSavingForm] = useState(false);
+
+  // Form Deletion Confirm state
+  const [deletingFormId, setDeletingFormId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Field Editor Sub-Modal state
   const [editingFieldIdx, setEditingFieldIdx] = useState<number | null>(null);
   const [fieldDraft, setFieldDraft] = useState<FormField | null>(null);
+  const [fieldModalError, setFieldModalError] = useState<string | null>(null);
 
-  // Active Runner (Live Data Collection)
+  // Active Runner (Live Data Collection) state
   const [activeCollectingForm, setActiveCollectingForm] = useState<CollectionForm | null>(null);
   const [collectionAnswers, setCollectionAnswers] = useState<Record<string, any>>({});
+  const [collectionError, setCollectionError] = useState<string | null>(null);
+  const [isSubmittingData, setIsSubmittingData] = useState(false);
   const [collectionSuccess, setCollectionSuccess] = useState(false);
 
-  const reloadForms = () => {
-    setForms(mealStorage.getForms(activeProject?.id));
-  };
+  const loadForms = useCallback(async () => {
+    if (!activeProject?.id) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [formsRes, subsRes] = await Promise.all([
+        mealApiClient.getCollectionForms(activeProject.id),
+        mealApiClient.getFormSubmissions(activeProject.id)
+      ]);
+
+      if (formsRes.error) {
+        setError(`Failed to retrieve forms: ${formsRes.error}`);
+      } else {
+        setForms(formsRes.data || []);
+      }
+
+      if (subsRes.data) {
+        const counts: Record<string, number> = {};
+        for (const sub of subsRes.data) {
+          counts[sub.formId] = (counts[sub.formId] || 0) + 1;
+        }
+        setSubmissionsCountMap(counts);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error querying database collection forms.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeProject?.id]);
+
+  useEffect(() => {
+    loadForms();
+  }, [loadForms]);
 
   const handleStartNewForm = () => {
     if (!activeProject) return;
+    setFormModalError(null);
     const newForm: CollectionForm = {
       id: `form_${Date.now()}`,
       projectId: activeProject.id,
       title: '',
       description: '',
       version: 1,
-      status: 'draft',
+      status: 'published',
       createdAt: new Date().toISOString(),
       targetSubmissions: 50,
       fields: [
@@ -81,35 +123,84 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
   };
 
   const handleEditForm = (form: CollectionForm) => {
+    setFormModalError(null);
     setEditingForm({ ...form, fields: [...form.fields] });
     setIsEditing(true);
   };
 
-  const handleDeleteForm = (formId: string) => {
-    if (confirm('Are you sure you want to delete this collection form?')) {
-      mealStorage.deleteForm(formId);
-      reloadForms();
+  const confirmDeleteForm = async () => {
+    if (!deletingFormId || !activeProject) return;
+    setIsDeleting(true);
+    try {
+      const res = await mealApiClient.deleteCollectionForm(deletingFormId);
+      if (res.error) {
+        setError(`Could not delete form: ${res.error}`);
+      } else {
+        const currentUser = accessControl.getCurrentUser();
+        await mealApiClient.logAudit({
+          organisationId: activeProject.organisationId,
+          projectId: activeProject.id,
+          actorName: currentUser.name,
+          actorRole: currentUser.role,
+          action: 'DELETE',
+          entityType: 'collection_form',
+          entityId: deletingFormId,
+          details: `Collection form ${deletingFormId} deleted by ${currentUser.name}`
+        });
+        await loadForms();
+      }
+    } catch (e: any) {
+      setError(e.message || 'Failed to delete form from database.');
+    } finally {
+      setIsDeleting(false);
+      setDeletingFormId(null);
     }
   };
 
-  const handleSaveForm = () => {
-    if (!editingForm) return;
+  const handleSaveForm = async () => {
+    if (!editingForm || !activeProject) return;
+    setFormModalError(null);
+
     if (!editingForm.title.trim()) {
-      alert('Please provide a form title.');
+      setFormModalError('Please provide a form title.');
       return;
     }
     if (editingForm.fields.length === 0) {
-      alert('A collection form must contain at least one field.');
+      setFormModalError('A collection form must contain at least one question field.');
       return;
     }
-    mealStorage.saveForm(editingForm);
-    setIsEditing(false);
-    setEditingForm(null);
-    reloadForms();
+
+    setIsSavingForm(true);
+    try {
+      const res = await mealApiClient.saveCollectionForm(editingForm);
+      if (res.error) {
+        setFormModalError(`Database save error: ${res.error}`);
+      } else {
+        const currentUser = accessControl.getCurrentUser();
+        await mealApiClient.logAudit({
+          organisationId: activeProject.organisationId,
+          projectId: activeProject.id,
+          actorName: currentUser.name,
+          actorRole: currentUser.role,
+          action: 'SAVE',
+          entityType: 'collection_form',
+          entityId: editingForm.id,
+          details: `Form "${editingForm.title}" saved with ${editingForm.fields.length} fields (v${editingForm.version})`
+        });
+        setIsEditing(false);
+        setEditingForm(null);
+        await loadForms();
+      }
+    } catch (e: any) {
+      setFormModalError(e.message || 'Failed to persist form.');
+    } finally {
+      setIsSavingForm(false);
+    }
   };
 
   // Field manipulation
   const handleOpenAddField = () => {
+    setFieldModalError(null);
     setFieldDraft({
       id: `f_${Date.now()}`,
       label: '',
@@ -124,8 +215,9 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
 
   const handleSaveFieldDraft = () => {
     if (!fieldDraft || !editingForm) return;
+    setFieldModalError(null);
     if (!fieldDraft.label.trim()) {
-      alert('Field label is required.');
+      setFieldModalError('Question label is required.');
       return;
     }
     const updatedFields = [...editingForm.fields];
@@ -149,6 +241,7 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
   const handleOpenCollectData = (form: CollectionForm) => {
     setActiveCollectingForm(form);
     setCollectionAnswers({});
+    setCollectionError(null);
     setCollectionSuccess(false);
   };
 
@@ -156,37 +249,66 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
     setCollectionAnswers(prev => ({ ...prev, [fieldId]: value }));
   };
 
-  const handleSubmitData = (e: React.FormEvent) => {
+  const handleSubmitData = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCollectionError(null);
     if (!activeCollectingForm || !activeProject) return;
 
     // Check required fields
     for (const f of activeCollectingForm.fields) {
       if (f.required && (collectionAnswers[f.id] === undefined || collectionAnswers[f.id] === '')) {
-        alert(`Field "${f.label}" is required.`);
+        setCollectionError(`Required field "${f.label}" cannot be left empty.`);
         return;
       }
     }
+
+    setIsSubmittingData(true);
+    const currentUser = accessControl.getCurrentUser();
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentUser.id);
+    const validEnumeratorId = isUuid ? currentUser.id : '00000000-0000-0000-0000-000000000001';
 
     const newSubmission: FormSubmission = {
       id: `sub_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       formId: activeCollectingForm.id,
       projectId: activeProject.id,
-      enumeratorId: 'active_user',
-      enumeratorName: 'Active Field Collector',
+      enumeratorId: validEnumeratorId,
+      enumeratorName: currentUser.name || 'Active Field Enumerator',
       submissionDate: new Date().toISOString(),
       data: collectionAnswers,
       status: 'submitted',
       gpsLocation: { latitude: 0.3476, longitude: 32.5825, accuracy: 4.5 }
     };
 
-    mealStorage.saveSubmission(newSubmission);
-    setCollectionSuccess(true);
-    setTimeout(() => {
-      setActiveCollectingForm(null);
-      setCollectionAnswers({});
-      setCollectionSuccess(false);
-    }, 1800);
+    try {
+      const res = await mealApiClient.saveFormSubmission(newSubmission);
+      if (res.error) {
+        setCollectionError(`Database submission failed: ${res.error}`);
+      } else {
+        await mealApiClient.logAudit({
+          organisationId: activeProject.organisationId,
+          projectId: activeProject.id,
+          actorName: currentUser.name,
+          actorRole: currentUser.role,
+          action: 'CREATE',
+          entityType: 'form_submission',
+          entityId: newSubmission.id,
+          details: `Field survey submitted for form "${activeCollectingForm.title}"`
+        });
+
+        setCollectionSuccess(true);
+        await loadForms();
+        setTimeout(() => {
+          setActiveCollectingForm(null);
+          setCollectionAnswers({});
+          setCollectionSuccess(false);
+        }, 1600);
+      }
+    } catch (err: any) {
+      setCollectionError(err.message || 'Unexpected failure while persisting submission.');
+    } finally {
+      setIsSubmittingData(false);
+    }
   };
 
   if (!activeProject) {
@@ -201,6 +323,19 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Error Banner */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="font-bold">Database Error:</span>
+            <span>{error}</span>
+          </div>
+          <button onClick={() => loadForms()} className="underline font-semibold hover:text-red-900">
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Header bar */}
       <div className="bg-white p-5 rounded-lg border border-neutral-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -230,7 +365,12 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
       </div>
 
       {/* Forms Grid */}
-      {forms.length === 0 ? (
+      {isLoading ? (
+        <div className="p-12 text-center bg-white rounded-lg border border-neutral-200">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-xs text-neutral-500">Fetching forms from Supabase PostgreSQL...</p>
+        </div>
+      ) : forms.length === 0 ? (
         <Card className="text-center py-12">
           <DevicePhoneMobileIcon className="w-12 h-12 text-neutral-400 mx-auto mb-3" />
           <h3 className="text-lg font-semibold text-neutral-800">No Data Collection Forms Yet</h3>
@@ -244,7 +384,7 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {forms.map(form => {
-            const submissionsCount = mealStorage.getSubmissions(activeProject.id).filter(s => s.formId === form.id).length;
+            const submissionsCount = submissionsCountMap[form.id] || 0;
             const statusColor = form.status === 'published' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
 
             return (
@@ -295,7 +435,7 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
                       <EditIcon className="w-4 h-4" />
                     </button>
                     <button 
-                      onClick={() => handleDeleteForm(form.id)}
+                      onClick={() => setDeletingFormId(form.id)}
                       className="p-1.5 text-neutral-600 hover:text-red-600 hover:bg-red-50 rounded transition"
                       title="Delete form"
                     >
@@ -306,6 +446,26 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingFormId && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 className="text-base font-bold text-neutral-800">Confirm Deletion</h3>
+            <p className="text-xs text-neutral-600">
+              Are you sure you want to permanently delete this collection form? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" size="sm" onClick={() => setDeletingFormId(null)} disabled={isDeleting}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={confirmDeleteForm} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
+                {isDeleting ? 'Deleting...' : 'Delete Form'}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -327,6 +487,12 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
                 ✕
               </button>
             </div>
+
+            {formModalError && (
+              <div className="p-3 bg-red-50 border-b border-red-200 text-xs text-red-700 font-medium">
+                {formModalError}
+              </div>
+            )}
 
             <div className="p-6 overflow-y-auto space-y-5 flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -415,11 +581,11 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
             </div>
 
             <div className="p-4 border-t border-neutral-200 bg-neutral-50 flex items-center justify-end gap-3">
-              <Button variant="secondary" onClick={() => { setIsEditing(false); setEditingForm(null); }}>
+              <Button variant="secondary" onClick={() => { setIsEditing(false); setEditingForm(null); }} disabled={isSavingForm}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveForm}>
-                Save Form
+              <Button onClick={handleSaveForm} disabled={isSavingForm}>
+                {isSavingForm ? 'Saving to Database...' : 'Save Form'}
               </Button>
             </div>
           </div>
@@ -433,6 +599,12 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
             <h4 className="text-base font-bold text-neutral-800">
               {editingFieldIdx !== null && editingFieldIdx >= 0 ? 'Edit Question' : 'Add Question'}
             </h4>
+
+            {fieldModalError && (
+              <div className="p-2 bg-red-50 border border-red-200 text-xs text-red-700">
+                {fieldModalError}
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-semibold text-neutral-700 mb-1">Question / Label *</label>
@@ -462,7 +634,7 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
               <div className="flex items-center pt-5">
                 <label className="flex items-center gap-2 text-xs font-semibold text-neutral-700 cursor-pointer">
                   <input 
-                    type="checkbox"
+                    type="checkbox" 
                     checked={fieldDraft.required}
                     onChange={(e) => setFieldDraft({ ...fieldDraft, required: e.target.checked })}
                     className="w-4 h-4 text-primary rounded"
@@ -561,6 +733,12 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
               </div>
             ) : (
               <form onSubmit={handleSubmitData} className="p-6 overflow-y-auto space-y-4 flex-1">
+                {collectionError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                    {collectionError}
+                  </div>
+                )}
+
                 <div className="bg-blue-50 border border-blue-200 p-3 rounded text-xs text-blue-800">
                   📍 <strong>GPS Geotagging:</strong> Coordinates will be captured automatically upon submission.
                 </div>
@@ -686,11 +864,11 @@ export const FormBuilderView: React.FC<FormBuilderViewProps> = ({
                 ))}
 
                 <div className="pt-4 border-t border-neutral-200 flex items-center justify-end gap-3">
-                  <Button variant="secondary" onClick={() => setActiveCollectingForm(null)}>
+                  <Button variant="secondary" onClick={() => setActiveCollectingForm(null)} disabled={isSubmittingData}>
                     Cancel
                   </Button>
-                  <Button type="submit">
-                    Submit Field Record
+                  <Button type="submit" disabled={isSubmittingData}>
+                    {isSubmittingData ? 'Submitting...' : 'Submit Field Record'}
                   </Button>
                 </div>
               </form>

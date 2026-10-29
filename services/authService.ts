@@ -1,5 +1,6 @@
-import { UserProfile, UserRole, Project, FormSubmission, AccountabilityComplaint } from '../types';
+import { UserProfile, UserRole, Project, FormSubmission, AccountabilityComplaint, Organisation } from '../types';
 import { mealStorage, getSafeStorage } from './mealStorage';
+import { supabase } from './supabaseClient';
 
 export interface UserSession {
   user: UserProfile;
@@ -9,7 +10,7 @@ export interface UserSession {
   expiresAt: number;
 }
 
-// Canonical institutional demo users for demonstration and testing without hardcoded passwords
+// Reference institutional profiles for testing & permission verification fixtures
 export const INSTITUTIONAL_USERS: UserProfile[] = [
   {
     id: 'user_admin_01',
@@ -53,7 +54,7 @@ export const INSTITUTIONAL_USERS: UserProfile[] = [
   },
   {
     id: 'user_donor_06',
-    name: 'Eleanor Vance (FCDO Donor Representative)',
+    name: 'Eleanor Vance',
     email: 'eleanor.vance@fcdo.gov.uk',
     role: 'viewer',
     organisationId: 'org_gh_health',
@@ -61,11 +62,117 @@ export const INSTITUTIONAL_USERS: UserProfile[] = [
   }
 ];
 
+const GUEST_USER: UserProfile = {
+  id: 'guest',
+  name: 'Guest User',
+  email: '',
+  role: 'viewer',
+  organisationId: '',
+  activeProjectIds: []
+};
+
 class AccessControlService {
   private currentSession: UserSession | null = null;
+  private authSubscribers: Array<(session: UserSession | null) => void> = [];
 
   constructor() {
     this.restoreSession();
+    this.initSupabaseAuth();
+  }
+
+  private async initSupabaseAuth() {
+    if (!supabase) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await this.syncSupabaseUser(session.user, session.access_token);
+      }
+
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          await this.syncSupabaseUser(session.user, session.access_token);
+        } else if (event === 'SIGNED_OUT') {
+          this.currentSession = null;
+          this.persistSession(null);
+          this.notifySubscribers();
+        }
+      });
+    } catch (e) {
+      console.warn('[AuthService] Supabase session check notice:', e);
+    }
+  }
+
+  private async syncSupabaseUser(sbUser: any, token: string) {
+    let profile: UserProfile | null = null;
+    if (supabase) {
+      try {
+        const { data } = await supabase.from('user_profiles').select('*').eq('id', sbUser.id).maybeSingle();
+        if (data) {
+          profile = {
+            id: data.id,
+            email: data.email,
+            name: data.name,
+            role: data.role as UserRole,
+            organisationId: data.organisation_id,
+            activeProjectIds: data.active_project_ids || []
+          };
+        }
+      } catch (err) {
+        console.warn('[AuthService] User profile query notice:', err);
+      }
+    }
+
+    if (!profile) {
+      const metadata = sbUser.user_metadata || {};
+      const orgId = metadata.organisation_id || `org_${sbUser.id.substring(0, 8)}`;
+      profile = {
+        id: sbUser.id,
+        email: sbUser.email || '',
+        name: metadata.name || sbUser.email?.split('@')[0] || 'MEAL Professional',
+        role: (metadata.role as UserRole) || 'meal_officer',
+        organisationId: orgId,
+        activeProjectIds: []
+      };
+
+      // Persist profile to Supabase user_profiles if connected
+      if (supabase) {
+        try {
+          // Check if organisation exists
+          const { data: existingOrg } = await supabase.from('organisations').select('id').eq('id', orgId).maybeSingle();
+          if (!existingOrg) {
+            await supabase.from('organisations').insert({
+              id: orgId,
+              name: metadata.organisation_name || `${profile.name}'s Organisation`,
+              code: 'ORG',
+              currency: 'USD ($)'
+            });
+          }
+
+          await supabase.from('user_profiles').upsert({
+            id: profile.id,
+            email: profile.email,
+            name: profile.name,
+            role: profile.role,
+            organisation_id: profile.organisationId,
+            active_project_ids: profile.activeProjectIds
+          });
+        } catch (e) {
+          console.warn('[AuthService] Profile auto-provision notice:', e);
+        }
+      }
+    }
+
+    const session: UserSession = {
+      user: profile,
+      token: token || `sess_${profile.id}`,
+      isAuthenticated: true,
+      loginTime: new Date().toISOString(),
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000
+    };
+
+    this.currentSession = session;
+    this.persistSession(session);
+    this.notifySubscribers();
   }
 
   private restoreSession(): void {
@@ -82,29 +189,153 @@ class AccessControlService {
     } catch (e) {
       console.warn('Could not restore session:', e);
     }
+    // No mock auto-login. Start unauthenticated if no stored valid session.
+    this.currentSession = null;
+  }
 
-    // Default authenticated session with MEAL Officer persona
-    this.loginAs(INSTITUTIONAL_USERS[1]);
+  private persistSession(session: UserSession | null): void {
+    try {
+      const storage = getSafeStorage();
+      if (session) {
+        storage.setItem('meal_active_session', JSON.stringify(session));
+        storage.setItem('meal_current_role', session.user.role);
+        storage.setItem('meal_current_org_id', session.user.organisationId);
+      } else {
+        storage.removeItem('meal_active_session');
+      }
+    } catch (e) {
+      console.warn('Session persistence error:', e);
+    }
+  }
+
+  private notifySubscribers(): void {
+    this.authSubscribers.forEach(cb => {
+      try { cb(this.currentSession); } catch (e) { console.error(e); }
+    });
+  }
+
+  public onAuthChange(callback: (session: UserSession | null) => void): () => void {
+    this.authSubscribers.push(callback);
+    callback(this.currentSession);
+    return () => {
+      this.authSubscribers = this.authSubscribers.filter(cb => cb !== callback);
+    };
+  }
+
+  // --- Real Supabase Auth Methods ---
+  async signUp(email: string, password: string, name: string, role: UserRole, orgName?: string): Promise<{ success: boolean; error?: string }> {
+    if (!supabase) {
+      return { success: false, error: 'Database authentication client is unavailable.' };
+    }
+    try {
+      const orgId = `org_${Math.random().toString(36).substring(2, 9)}`;
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+            role,
+            organisation_id: orgId,
+            organisation_name: orgName || `${name}'s Organisation`
+          }
+        }
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (data.user) {
+        // Create initial organisation
+        await supabase.from('organisations').insert({
+          id: orgId,
+          name: orgName || `${name}'s Organisation`,
+          code: orgName ? orgName.substring(0, 4).toUpperCase() : 'MEAL',
+          currency: 'USD ($)'
+        });
+
+        // Create user profile
+        await supabase.from('user_profiles').insert({
+          id: data.user.id,
+          email: data.user.email!,
+          name,
+          role,
+          organisation_id: orgId,
+          active_project_ids: []
+        });
+
+        if (data.session) {
+          await this.syncSupabaseUser(data.user, data.session.access_token);
+        }
+      }
+
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message || 'An unexpected error occurred during registration.' };
+    }
+  }
+
+  async signIn(email: string, password: string): Promise<{ success: boolean; error?: string }> {
+    if (!supabase) {
+      return { success: false, error: 'Database authentication client is unavailable.' };
+    }
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (data.session && data.user) {
+        await this.syncSupabaseUser(data.user, data.session.access_token);
+      }
+
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Failed to authenticate user.' };
+    }
+  }
+
+  async signOut(): Promise<void> {
+    if (supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {
+        console.warn('Supabase signOut notice:', e);
+      }
+    }
+    this.logout();
+  }
+
+  async resetPassword(email: string): Promise<{ success: boolean; error?: string }> {
+    if (!supabase) {
+      return { success: false, error: 'Database authentication client is unavailable.' };
+    }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Failed to request password reset.' };
+    }
   }
 
   loginAs(userProfile: UserProfile): UserSession {
     const session: UserSession = {
       user: userProfile,
-      token: `sess_${userProfile.id}_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`,
+      token: `sess_${userProfile.id}_${Date.now()}`,
       isAuthenticated: true,
       loginTime: new Date().toISOString(),
-      expiresAt: Date.now() + 8 * 60 * 60 * 1000 // 8 hours valid
+      expiresAt: Date.now() + 8 * 60 * 60 * 1000
     };
 
     this.currentSession = session;
-    try {
-      const storage = getSafeStorage();
-      storage.setItem('meal_active_session', JSON.stringify(session));
-      storage.setItem('meal_current_role', userProfile.role);
-      storage.setItem('meal_current_org_id', userProfile.organisationId);
-    } catch (e) {
-      console.warn('Session write failed:', e);
-    }
+    this.persistSession(session);
+    this.notifySubscribers();
 
     mealStorage.logAudit(
       userProfile.organisationId,
@@ -130,17 +361,21 @@ class AccessControlService {
       );
     }
     this.currentSession = null;
-    try {
-      const storage = getSafeStorage();
-      storage.removeItem('meal_active_session');
-    } catch (e) {
-      console.warn('Session remove failed:', e);
-    }
+    this.persistSession(null);
+    this.notifySubscribers();
+  }
+
+  getCurrentSession(): UserSession | null {
+    return this.currentSession;
+  }
+
+  isAuthenticated(): boolean {
+    return this.currentSession !== null && this.currentSession.expiresAt > Date.now();
   }
 
   getCurrentUser(): UserProfile {
     if (!this.currentSession || this.currentSession.expiresAt < Date.now()) {
-      return INSTITUTIONAL_USERS[1]; // Fallback to MEAL officer
+      return GUEST_USER;
     }
     return this.currentSession.user;
   }
@@ -150,35 +385,22 @@ class AccessControlService {
   }
 
   // --- Granular Security Policy Checks ---
-
-  /**
-   * Organisation Isolation Check:
-   * Confirms user is authorized for the target organisation.
-   */
   canAccessOrganisation(targetOrgId: string): boolean {
     const user = this.getCurrentUser();
     if (user.role === 'platform_admin') return true;
     return user.organisationId === targetOrgId;
   }
 
-  /**
-   * Project Access Check:
-   * Confirms user can view the specific project.
-   */
   canAccessProject(project: Project | null): boolean {
     if (!project) return false;
     const user = this.getCurrentUser();
     if (user.role === 'platform_admin') return true;
-    if (project.organisationId && project.organisationId !== user.organisationId) return false;
+    if (project.organisationId && user.organisationId && project.organisationId !== user.organisationId) return false;
     if (user.role === 'org_admin' || user.role === 'meal_officer') return true;
     if (user.activeProjectIds.length === 0) return true;
     return user.activeProjectIds.includes(project.id);
   }
 
-  /**
-   * Project Modification Check (Create, Edit, Delete Project):
-   * Strictly forbids donor (viewer) and enumerator.
-   */
   canMutateProject(project?: Project | null): boolean {
     const role = this.getCurrentRole();
     if (role === 'viewer' || role === 'enumerator' || role === 'analyst') return false;
@@ -186,20 +408,11 @@ class AccessControlService {
     return false;
   }
 
-  /**
-   * Indicator Mutation Check (Add, Edit, Delete Indicator):
-   * Strictly forbids donor (viewer), enumerator.
-   */
   canMutateIndicator(): boolean {
     const role = this.getCurrentRole();
     return role === 'platform_admin' || role === 'org_admin' || role === 'meal_officer' || role === 'project_manager';
   }
 
-  /**
-   * Data Point & Submission Approval Check:
-   * Rule 1: Must hold reviewer, meal_officer, org_admin, or platform_admin role.
-   * Rule 2: Anti-Self-Approval Policy: An enumerator/collector cannot approve their own submission!
-   */
   canApproveSubmission(submission: FormSubmission): { allowed: boolean; reason?: string } {
     const user = this.getCurrentUser();
     const role = user.role;
@@ -216,7 +429,6 @@ class AccessControlService {
       return { allowed: false, reason: 'Statistical Analysts cannot approve raw field records.' };
     }
 
-    // Anti-Self-Approval Enforcement
     if (submission.enumeratorId === user.id) {
       return { allowed: false, reason: 'Policy Violation: Field collectors cannot approve their own submissions.' };
     }
@@ -229,37 +441,22 @@ class AccessControlService {
     return { allowed: true };
   }
 
-  /**
-   * Safeguarding & Confidential Grievances Access Check:
-   * Core Humanitarian Standard Commitment 5 requires strict confidentiality.
-   * Restricts sensitive records from Donors, Enumerators, and general staff.
-   */
   canAccessSafeguardingRecord(complaint: AccountabilityComplaint): boolean {
     if (!complaint.isSafeguardingSensitive) return true;
     const role = this.getCurrentRole();
-    // Only platform admin, org admin, and designated meal lead can access sensitive cases
     return role === 'platform_admin' || role === 'org_admin' || role === 'meal_officer';
   }
 
-  /**
-   * Report Publication & Sign-off Check:
-   */
   canPublishReport(): boolean {
     const role = this.getCurrentRole();
     return role === 'platform_admin' || role === 'org_admin' || role === 'project_manager' || role === 'meal_officer';
   }
 
-  /**
-   * Audit Log Inspection Check:
-   */
   canViewAuditLogs(): boolean {
     const role = this.getCurrentRole();
     return role === 'platform_admin' || role === 'org_admin' || role === 'meal_officer';
   }
 
-  /**
-   * General Read-Only Guard:
-   */
   isReadOnly(): boolean {
     return this.getCurrentRole() === 'viewer';
   }

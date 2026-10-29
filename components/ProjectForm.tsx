@@ -17,8 +17,10 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ isOpen, onClose, onSubmit, in
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
+    setFormError(null);
     if (initialData) {
       setName(initialData.name);
       setDescription(initialData.description);
@@ -36,9 +38,10 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ isOpen, onClose, onSubmit, in
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (new Date(startDate) > new Date(endDate)) {
-        alert("Start date cannot be after end date.");
-        return;
+      setFormError("Start date cannot be after end date.");
+      return;
     }
     const projectData = { name, description, startDate, endDate };
     if (initialData) {
@@ -52,6 +55,11 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ isOpen, onClose, onSubmit, in
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={initialData ? 'Edit Project Details' : 'Create New Project'} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {formError && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+            {formError}
+          </div>
+        )}
         <Input 
           label="Project Name" 
           id="projectName" 

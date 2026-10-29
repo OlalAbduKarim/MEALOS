@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Project, FormSubmission, CollectionForm, Indicator, DataPoint } from '../../types';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
-import { ClipboardListIcon, CheckIcon, CloseIcon, EyeIcon } from '../../constants';
-import { mealStorage } from '../../services/mealStorage';
+import { ClipboardListIcon } from '../../constants';
+import { mealApiClient } from '../../services/apiClient';
 import { accessControl } from '../../services/authService';
 
 interface FormSubmissionsViewProps {
@@ -17,51 +17,102 @@ export const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({
   projectIndicators = [],
   onAddDataPoint
 }) => {
-  const [submissions, setSubmissions] = useState<FormSubmission[]>(() => {
-    return mealStorage.getSubmissions(activeProject?.id);
-  });
-  const [forms] = useState<CollectionForm[]>(() => {
-    return mealStorage.getForms(activeProject?.id);
-  });
+  const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
+  const [forms, setForms] = useState<CollectionForm[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedSub, setSelectedSub] = useState<FormSubmission | null>(null);
   const [reviewNote, setReviewNote] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const reloadSubmissions = () => {
-    setSubmissions(mealStorage.getSubmissions(activeProject?.id));
-  };
+  const loadData = useCallback(async () => {
+    if (!activeProject?.id) return;
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const [subsRes, formsRes] = await Promise.all([
+        mealApiClient.getFormSubmissions(activeProject.id),
+        mealApiClient.getCollectionForms(activeProject.id)
+      ]);
+
+      if (subsRes.error) {
+        setLoadError(`Database query error: ${subsRes.error}`);
+      } else {
+        setSubmissions(subsRes.data || []);
+      }
+
+      if (formsRes.data) {
+        setForms(formsRes.data);
+      }
+    } catch (e: any) {
+      setLoadError(e.message || 'Failed to load form submissions from Supabase.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeProject?.id]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleUpdateStatus = async (sub: FormSubmission, newStatus: FormSubmission['status']) => {
+    setActionError(null);
+    setActionSuccess(null);
+
+    const currentUser = accessControl.getCurrentUser();
+
+    // 1. Enforce Separation of Duties
     if (newStatus === 'approved') {
+      if (sub.enumeratorId === currentUser.id && currentUser.id !== 'guest') {
+        setActionError('Separation of Duties Violation: You cannot approve your own submission. An independent MEAL Officer or Reviewer must verify this record.');
+        return;
+      }
+
       const approvalCheck = accessControl.canApproveSubmission(sub);
       if (!approvalCheck.allowed) {
-        alert(`Access Denied: ${approvalCheck.reason}`);
+        setActionError(`Access Denied: ${approvalCheck.reason}`);
         return;
       }
     }
 
-    const currentActor = accessControl.getCurrentUser().name;
-    mealStorage.updateSubmissionStatus(sub.id, newStatus, reviewNote || undefined, currentActor);
+    setIsProcessing(true);
+    try {
+      const updatedSub: FormSubmission = {
+        ...sub,
+        status: newStatus,
+        reviewNotes: reviewNote.trim() || undefined,
+        reviewerName: currentUser.name || 'MEAL Officer',
+        approvedAt: newStatus === 'approved' ? new Date().toISOString() : sub.approvedAt
+      };
 
-    // If approved, check if form has fields mapped to indicators, and auto-generate verified data points!
-    if (newStatus === 'approved') {
-      const parentForm = forms.find(f => f.id === sub.formId);
-      if (parentForm) {
-        for (const field of parentForm.fields) {
-          if (field.mappedIndicatorId && sub.data[field.id] !== undefined) {
-            const rawVal = sub.data[field.id];
-            const numVal = typeof rawVal === 'number' ? rawVal : parseFloat(String(rawVal));
-            const actualVal = !isNaN(numVal) ? numVal : String(rawVal);
+      const res = await mealApiClient.saveFormSubmission(updatedSub);
+      if (res.error) {
+        setActionError(`Database update failed: ${res.error}`);
+        setIsProcessing(false);
+        return;
+      }
 
-            if (onAddDataPoint) {
+      // If approved, commit any linked indicator values into the indicator tracking table
+      if (newStatus === 'approved' && onAddDataPoint) {
+        const parentForm = forms.find(f => f.id === sub.formId);
+        if (parentForm) {
+          for (const field of parentForm.fields) {
+            if (field.mappedIndicatorId && sub.data[field.id] !== undefined) {
+              const rawVal = sub.data[field.id];
+              const numVal = typeof rawVal === 'number' ? rawVal : parseFloat(String(rawVal));
+              const actualVal = !isNaN(numVal) ? numVal : String(rawVal);
+
               await onAddDataPoint({
                 indicatorId: field.mappedIndicatorId,
                 actualValue: actualVal,
-                collectionDate: sub.submissionDate.split('T')[0],
+                collectionDate: (sub.submissionDate || new Date().toISOString()).split('T')[0],
                 notes: `Auto-verified from Form Submission #${sub.id} (${parentForm.title}). Review: ${reviewNote || 'Approved'}`,
                 verificationStatus: 'verified',
-                verifiedBy: 'MEAL Reviewer',
+                verifiedBy: currentUser.name || 'MEAL Reviewer',
                 submissionId: sub.id,
                 tags: { source: 'digital_form', enumerator: sub.enumeratorName }
               });
@@ -69,11 +120,33 @@ export const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({
           }
         }
       }
-    }
 
-    reloadSubmissions();
-    setSelectedSub(null);
-    setReviewNote('');
+      // Log to Immutable Audit Trail
+      if (activeProject) {
+        await mealApiClient.logAudit({
+          organisationId: activeProject.organisationId,
+          projectId: activeProject.id,
+          actorName: currentUser.name,
+          actorRole: currentUser.role,
+          action: 'VERIFY_SUBMISSION',
+          entityType: 'form_submission',
+          entityId: sub.id,
+          details: `Submission #${sub.id} status transitioned to "${newStatus}" by ${currentUser.name} (${currentUser.role}). Notes: ${reviewNote || 'N/A'}`
+        });
+      }
+
+      setActionSuccess(`Submission successfully updated to "${newStatus.replace('_', ' ')}".`);
+      await loadData();
+      setTimeout(() => {
+        setSelectedSub(null);
+        setReviewNote('');
+        setActionSuccess(null);
+      }, 1000);
+    } catch (e: any) {
+      setActionError(e.message || 'An error occurred during submission verification.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const filtered = submissions.filter(s => {
@@ -91,6 +164,19 @@ export const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Database Error Banner */}
+      {loadError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-center justify-between">
+          <div>
+            <span className="font-bold">Database Error: </span>
+            <span>{loadError}</span>
+          </div>
+          <button onClick={() => loadData()} className="underline font-semibold hover:text-red-900">
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white p-5 rounded-lg border border-neutral-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -119,7 +205,12 @@ export const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({
       </div>
 
       {/* Submissions List */}
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="p-12 text-center bg-white rounded-lg border border-neutral-200">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-xs text-neutral-500">Querying submissions from Supabase PostgreSQL...</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <Card className="text-center py-12">
           <ClipboardListIcon className="w-12 h-12 text-neutral-400 mx-auto mb-2" />
           <h3 className="text-base font-semibold text-neutral-700">No Submissions Found</h3>
@@ -157,7 +248,7 @@ export const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({
                   return (
                     <tr key={sub.id} className="hover:bg-neutral-50 transition">
                       <td className="py-3 px-4 font-mono text-xs font-semibold text-neutral-800">
-                        {sub.id.substring(0, 12)}
+                        {sub.id.substring(0, 16)}
                       </td>
                       <td className="py-3 px-4 font-medium text-neutral-800">
                         {form?.title || 'Unknown Form'}
@@ -177,7 +268,12 @@ export const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({
                         <Button 
                           size="sm" 
                           variant="secondary"
-                          onClick={() => { setSelectedSub(sub); setReviewNote(sub.reviewNotes || ''); }}
+                          onClick={() => { 
+                            setSelectedSub(sub); 
+                            setReviewNote(sub.reviewNotes || ''); 
+                            setActionError(null);
+                            setActionSuccess(null);
+                          }}
                         >
                           Inspect & Verify
                         </Button>
@@ -207,6 +303,18 @@ export const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({
                 ✕
               </button>
             </div>
+
+            {actionError && (
+              <div className="p-3 bg-red-50 border-b border-red-200 text-xs text-red-700 font-semibold">
+                {actionError}
+              </div>
+            )}
+
+            {actionSuccess && (
+              <div className="p-3 bg-emerald-50 border-b border-emerald-200 text-xs text-emerald-800 font-semibold">
+                {actionSuccess}
+              </div>
+            )}
 
             <div className="p-6 overflow-y-auto space-y-5 flex-1">
               {/* Metadata strip */}
@@ -245,7 +353,7 @@ export const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({
                         <div>
                           <span className="font-semibold text-neutral-800">{label}</span>
                           {field?.mappedIndicatorId && (
-                            <span className="ml-2 px-1.5 py-0.2 bg-blue-50 text-blue-700 rounded text-[10px] font-bold">
+                            <span className="ml-2 px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-bold">
                               Linked to Indicator
                             </span>
                           )}
@@ -279,6 +387,7 @@ export const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({
               <Button 
                 variant="secondary"
                 size="sm"
+                disabled={isProcessing}
                 onClick={() => handleUpdateStatus(selectedSub, 'returned')}
               >
                 Return to Enumerator
@@ -288,20 +397,26 @@ export const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({
                 <Button 
                   variant="secondary" 
                   size="sm"
+                  disabled={isProcessing}
                   onClick={() => handleUpdateStatus(selectedSub, 'under_review')}
                 >
                   Mark Under Review
                 </Button>
                 {(() => {
+                  const currentUser = accessControl.getCurrentUser();
+                  const isSelf = selectedSub.enumeratorId === currentUser.id && currentUser.id !== 'guest';
                   const check = accessControl.canApproveSubmission(selectedSub);
+                  const canApprove = check.allowed && !isSelf;
+                  const reason = isSelf ? 'Separation of duties violation: Submitter cannot approve own record.' : check.reason;
+
                   return (
                     <Button 
                       size="sm"
                       onClick={() => handleUpdateStatus(selectedSub, 'approved')}
-                      disabled={!check.allowed}
-                      title={check.reason}
+                      disabled={!canApprove || isProcessing}
+                      title={reason}
                     >
-                      {check.allowed ? 'Approve & Commit to Indicators' : 'Approval Prohibited (Policy Guard)'}
+                      {isProcessing ? 'Processing...' : canApprove ? 'Approve & Commit to Indicators' : 'Approval Prohibited (Policy Guard)'}
                     </Button>
                   );
                 })()}

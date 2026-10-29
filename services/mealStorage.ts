@@ -362,12 +362,7 @@ class MealStorageService {
 
   // Organisations
   getOrganisations(): Organisation[] {
-    const orgs = this.get<Organisation[]>(STORAGE_KEYS.ORGANISATIONS, []);
-    if (orgs.length === 0) {
-      this.set(STORAGE_KEYS.ORGANISATIONS, DEFAULT_ORGANISATIONS);
-      return DEFAULT_ORGANISATIONS;
-    }
-    return orgs;
+    return this.get<Organisation[]>(STORAGE_KEYS.ORGANISATIONS, []);
   }
 
   saveOrganisation(org: Organisation): void {
@@ -387,8 +382,10 @@ class MealStorageService {
     const saved = storage.getItem(STORAGE_KEYS.CURRENT_ORG_ID);
     if (saved) return saved;
     const orgs = this.getOrganisations();
-    const defaultId = orgs[0]?.id || 'org_gh_health';
-    this.setActiveOrganisationId(defaultId);
+    const defaultId = orgs[0]?.id || '';
+    if (defaultId) {
+      this.setActiveOrganisationId(defaultId);
+    }
     return defaultId;
   }
 
@@ -488,15 +485,11 @@ class MealStorageService {
   // Forms
   getForms(projectId?: string): CollectionForm[] {
     const forms = this.get<CollectionForm[]>(STORAGE_KEYS.FORMS, []);
-    if (forms.length === 0) {
-      this.set(STORAGE_KEYS.FORMS, SEED_FORMS);
-      return projectId ? SEED_FORMS.filter(f => f.projectId === projectId) : SEED_FORMS;
-    }
     return projectId ? forms.filter(f => f.projectId === projectId) : forms;
   }
 
   saveForm(form: CollectionForm): void {
-    const forms = this.get<CollectionForm[]>(STORAGE_KEYS.FORMS, SEED_FORMS);
+    const forms = this.get<CollectionForm[]>(STORAGE_KEYS.FORMS, []);
     const existingIdx = forms.findIndex(f => f.id === form.id);
     if (existingIdx >= 0) {
       forms[existingIdx] = form;
@@ -515,15 +508,11 @@ class MealStorageService {
   // Form Submissions
   getSubmissions(projectId?: string): FormSubmission[] {
     const submissions = this.get<FormSubmission[]>(STORAGE_KEYS.SUBMISSIONS, []);
-    if (submissions.length === 0) {
-      this.set(STORAGE_KEYS.SUBMISSIONS, SEED_SUBMISSIONS);
-      return projectId ? SEED_SUBMISSIONS.filter(s => s.projectId === projectId) : SEED_SUBMISSIONS;
-    }
     return projectId ? submissions.filter(s => s.projectId === projectId) : submissions;
   }
 
   saveSubmission(submission: FormSubmission): void {
-    const submissions = this.get<FormSubmission[]>(STORAGE_KEYS.SUBMISSIONS, SEED_SUBMISSIONS);
+    const submissions = this.get<FormSubmission[]>(STORAGE_KEYS.SUBMISSIONS, []);
     const existingIdx = submissions.findIndex(s => s.id === submission.id);
     if (existingIdx >= 0) {
       submissions[existingIdx] = submission;
@@ -550,15 +539,11 @@ class MealStorageService {
   // Risks
   getRisks(projectId?: string): RiskItem[] {
     const risks = this.get<RiskItem[]>(STORAGE_KEYS.RISKS, []);
-    if (risks.length === 0) {
-      this.set(STORAGE_KEYS.RISKS, SEED_RISKS);
-      return projectId ? SEED_RISKS.filter(r => r.projectId === projectId) : SEED_RISKS;
-    }
     return projectId ? risks.filter(r => r.projectId === projectId) : risks;
   }
 
   saveRisk(risk: RiskItem): void {
-    const risks = this.get<RiskItem[]>(STORAGE_KEYS.RISKS, SEED_RISKS);
+    const risks = this.get<RiskItem[]>(STORAGE_KEYS.RISKS, []);
     const idx = risks.findIndex(r => r.id === risk.id);
     if (idx >= 0) {
       risks[idx] = risk;
@@ -577,15 +562,11 @@ class MealStorageService {
   // Accountability & Complaints
   getComplaints(projectId?: string): AccountabilityComplaint[] {
     const complaints = this.get<AccountabilityComplaint[]>(STORAGE_KEYS.COMPLAINTS, []);
-    if (complaints.length === 0) {
-      this.set(STORAGE_KEYS.COMPLAINTS, SEED_COMPLAINTS);
-      return projectId ? SEED_COMPLAINTS.filter(c => c.projectId === projectId) : SEED_COMPLAINTS;
-    }
     return projectId ? complaints.filter(c => c.projectId === projectId) : complaints;
   }
 
   saveComplaint(complaint: AccountabilityComplaint): void {
-    const complaints = this.get<AccountabilityComplaint[]>(STORAGE_KEYS.COMPLAINTS, SEED_COMPLAINTS);
+    const complaints = this.get<AccountabilityComplaint[]>(STORAGE_KEYS.COMPLAINTS, []);
     const idx = complaints.findIndex(c => c.id === complaint.id);
     if (idx >= 0) {
       complaints[idx] = complaint;
@@ -599,15 +580,11 @@ class MealStorageService {
   // Evaluations
   getEvaluations(projectId?: string): Evaluation[] {
     const evals = this.get<Evaluation[]>(STORAGE_KEYS.EVALUATIONS, []);
-    if (evals.length === 0) {
-      this.set(STORAGE_KEYS.EVALUATIONS, SEED_EVALUATIONS);
-      return projectId ? SEED_EVALUATIONS.filter(e => e.projectId === projectId) : SEED_EVALUATIONS;
-    }
     return projectId ? evals.filter(e => e.projectId === projectId) : evals;
   }
 
   saveEvaluation(evaluation: Evaluation): void {
-    const evals = this.get<Evaluation[]>(STORAGE_KEYS.EVALUATIONS, SEED_EVALUATIONS);
+    const evals = this.get<Evaluation[]>(STORAGE_KEYS.EVALUATIONS, []);
     const idx = evals.findIndex(e => e.id === evaluation.id);
     if (idx >= 0) {
       evals[idx] = evaluation;
@@ -621,15 +598,11 @@ class MealStorageService {
   // Reports
   getReports(projectId?: string): MealReport[] {
     const reports = this.get<MealReport[]>(STORAGE_KEYS.REPORTS, []);
-    if (reports.length === 0) {
-      this.set(STORAGE_KEYS.REPORTS, SEED_REPORTS);
-      return projectId ? SEED_REPORTS.filter(r => r.projectId === projectId) : SEED_REPORTS;
-    }
     return projectId ? reports.filter(r => r.projectId === projectId) : reports;
   }
 
   saveReport(report: MealReport): void {
-    const reports = this.get<MealReport[]>(STORAGE_KEYS.REPORTS, SEED_REPORTS);
+    const reports = this.get<MealReport[]>(STORAGE_KEYS.REPORTS, []);
     const idx = reports.findIndex(r => r.id === report.id);
     if (idx >= 0) {
       reports[idx] = report;
@@ -643,10 +616,6 @@ class MealStorageService {
   // Geo Sites
   getGeoSites(projectId?: string): GeoSite[] {
     const sites = this.get<GeoSite[]>(STORAGE_KEYS.GEO_SITES, []);
-    if (sites.length === 0) {
-      this.set(STORAGE_KEYS.GEO_SITES, SEED_GEO_SITES);
-      return projectId ? SEED_GEO_SITES.filter(s => s.projectId === projectId) : SEED_GEO_SITES;
-    }
     return projectId ? sites.filter(s => s.projectId === projectId) : sites;
   }
 

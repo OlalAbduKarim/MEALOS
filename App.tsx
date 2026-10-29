@@ -56,85 +56,10 @@ import RiskRegisterView from './components/features/RiskRegisterView';
 import ReportGeneratorView from './components/features/ReportGeneratorView';
 import AuditTrailView from './components/features/AuditTrailView';
 import UserManagementView from './components/features/UserManagementView';
+import { AuthModal } from './components/auth/AuthModal';
 import { mealStorage } from './services/mealStorage';
 import { accessControl } from './services/authService';
-import { UserRole } from './types';
-
-export const SAMPLE_INDICATORS: Indicator[] = [
-  {
-    id: 'ind_001',
-    projectId: 'proj_001',
-    code: 'IND-MCH-01',
-    name: 'Proportion of Pregnant Women Completing >= 4 ANC Visits',
-    description: 'Measures adherence to focused antenatal care model in target district.',
-    unitOfMeasure: '%',
-    dataType: IndicatorDataType.Percentage,
-    targetValue: 80,
-    baselineValue: 52,
-    directionality: 'higher_is_better',
-    sector: 'Health'
-  },
-  {
-    id: 'ind_002',
-    projectId: 'proj_001',
-    code: 'IND-MCH-02',
-    name: 'Percentage of Births Attended by Skilled Health Personnel',
-    description: 'Deliveries conducted in health centers or referral hospitals by certified midwives/doctors.',
-    unitOfMeasure: '%',
-    dataType: IndicatorDataType.Percentage,
-    targetValue: 75,
-    baselineValue: 48,
-    directionality: 'higher_is_better',
-    sector: 'Health'
-  },
-  {
-    id: 'ind_003',
-    projectId: 'proj_001',
-    code: 'IND-MCH-03',
-    name: 'Health Workers Trained in Emergency Obstetric & Newborn Care (EmONC)',
-    description: 'Cumulative count of nurses and clinical officers completing accredited 2-week EmONC training.',
-    unitOfMeasure: 'People',
-    dataType: IndicatorDataType.Numeric,
-    targetValue: 150,
-    baselineValue: 25,
-    directionality: 'higher_is_better',
-    sector: 'Health'
-  },
-  {
-    id: 'ind_004',
-    projectId: 'proj_001',
-    code: 'IND-MCH-04',
-    name: 'Active Village Health Teams / CHVs Conducting Monthly Home Visits',
-    description: 'Community health volunteers submitting monthly maternal counseling checklists.',
-    unitOfMeasure: 'Volunteers',
-    dataType: IndicatorDataType.Numeric,
-    targetValue: 300,
-    baselineValue: 50,
-    directionality: 'higher_is_better',
-    sector: 'Health'
-  },
-  {
-    id: 'ind_005',
-    projectId: 'proj_001',
-    code: 'IND-NUT-05',
-    name: 'Under-5 Child Moderate & Severe Acute Malnutrition Rate',
-    description: 'Children assessed with MUAC < 125mm during routine village screenings. Lower is better.',
-    unitOfMeasure: '%',
-    dataType: IndicatorDataType.Percentage,
-    targetValue: 12,
-    baselineValue: 24,
-    directionality: 'lower_is_better',
-    sector: 'Nutrition'
-  }
-];
-
-export const SAMPLE_DATAPOINTS: DataPoint[] = [
-  { id: 'dp_001', indicatorId: 'ind_001', actualValue: 78, collectionDate: '2024-03-15', notes: 'Quarterly facility audit verified', verificationStatus: 'verified' },
-  { id: 'dp_002', indicatorId: 'ind_002', actualValue: 71, collectionDate: '2024-03-15', notes: 'Clinic birth registers aggregated', verificationStatus: 'verified' },
-  { id: 'dp_003', indicatorId: 'ind_003', actualValue: 154, collectionDate: '2024-03-20', notes: 'EmONC cohort 3 completed', verificationStatus: 'verified' },
-  { id: 'dp_004', indicatorId: 'ind_004', actualValue: 285, collectionDate: '2024-03-10', notes: 'Monthly parish summaries', verificationStatus: 'verified' },
-  { id: 'dp_005', indicatorId: 'ind_005', actualValue: 13.5, collectionDate: '2024-03-25', notes: 'Community screening report (On Track reduction from 24%)', verificationStatus: 'verified' }
-];
+import { UserRole, UserProfile, Organisation } from './types';
 
 const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -154,63 +79,79 @@ const App: React.FC = () => {
   const [activeAppScreenTab, setActiveAppScreenTab] = useState<RibbonTabId>(activeProjectId ? 'project_home' : 'home');
   const [currentMainView, setCurrentMainView] = useState<FeatureViewType | null>(null);
 
-  // MEAL Multi-Org & RBAC Persona State
-  const [organisations] = useState(() => mealStorage.getOrganisations());
+  // Authentication & Multi-Tenant State
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => accessControl.isAuthenticated() ? accessControl.getCurrentUser() : null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [organisations, setOrganisations] = useState<Organisation[]>(() => mealStorage.getOrganisations());
   const [activeOrgId, setActiveOrgId] = useState(() => mealStorage.getActiveOrganisationId());
-  const [activeRole, setActiveRole] = useState<UserRole>(() => mealStorage.getActiveRole());
+  const [activeRole, setActiveRole] = useState<UserRole>(() => accessControl.getCurrentRole());
   const [dismissDbBanner, setDismissDbBanner] = useState(false);
   const [showDbDetails, setShowDbDetails] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [dbInitializationError, setDbInitializationError] = useState<string | null>(null);
-
   const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [dbHealth, setDbHealth] = useState<{ connected: boolean; message: string; writeAllowed: boolean; rlsNotice?: string } | null>(null);
 
   const defaultToc: Omit<TheoryOfChangeFramework, 'id' | 'projectId' | 'lastUpdated'> = { inputs: '', activities: '', outputs: '', outcomes: '', impact: '', assumptions: '' };
   const defaultLogFrame: Omit<LogFrameFramework, 'id' | 'projectId' | 'lastUpdated'> = { goal: '', outcomes: '', outputs: '', activities: '', goalIndicators: '', outcomeIndicators: '', outputIndicators: '', activityIndicators: '', goalMov: '', outcomeMov: '', outputMov: '', activityMov: '', goalAssumptions: '', outcomeAssumptions: '', outputAssumptions: '', activityAssumptions: '' };
   const defaultResultsChain: Omit<ResultsChainFramework, 'id' | 'projectId' | 'lastUpdated'> = { inputs: '', activities: '', outputs: '', shortTermOutcomes: '', mediumTermOutcomes: '', longTermImpact: '' };
 
-  // Synchronize Data from Supabase / Backend with Local Cache Fallback
+  // Listen to Auth State Changes
   useEffect(() => {
-    let isMounted = true;
-
-    async function initializeData() {
-      setIsLoading(true);
-      try {
-        const [projRes, indRes, dpRes] = await Promise.all([
-          mealApiClient.getProjects(),
-          mealApiClient.getIndicators(),
-          mealApiClient.getDataPoints()
-        ]);
-
-        if (!isMounted) return;
-
-        const projectsData = projRes.data && projRes.data.length > 0 ? projRes.data : [INITIAL_PROJECT_SEED];
-        setProjects(projectsData);
-        setIndicators(indRes.data && indRes.data.length > 0 ? indRes.data : SAMPLE_INDICATORS);
-        setDataPoints(dpRes.data && dpRes.data.length > 0 ? dpRes.data : SAMPLE_DATAPOINTS);
-        setSuccessStories(mealStorage.getSuccessStories());
-        setLessonsLearned(mealStorage.getLessonsLearned());
-
-        if (!activeProjectId && projectsData.length > 0) {
-          setActiveProjectId(projectsData[0].id);
-        }
-      } catch (err: any) {
-        console.warn('Initial data synchronization notice:', err);
-      } finally {
-        if (isMounted) {
-          setProjectsLoaded(true);
-          setIsLoading(false);
+    const unsubscribe = accessControl.onAuthChange((session) => {
+      setCurrentUser(session?.user || null);
+      if (session?.user) {
+        setActiveRole(session.user.role);
+        if (session.user.organisationId) {
+          setActiveOrgId(session.user.organisationId);
         }
       }
+    });
+    return unsubscribe;
+  }, []);
+
+  const initializeData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [projRes, indRes, dpRes, storiesRes, lessonsRes, orgsRes] = await Promise.all([
+        mealApiClient.getProjects(),
+        mealApiClient.getIndicators(),
+        mealApiClient.getDataPoints(),
+        mealApiClient.getSuccessStories(),
+        mealApiClient.getLessonsLearned(),
+        mealApiClient.getOrganisations()
+      ]);
+
+      const projectsData = projRes.data || [];
+      setProjects(projectsData);
+      setIndicators(indRes.data || []);
+      setDataPoints(dpRes.data || []);
+      setSuccessStories(storiesRes.data || []);
+      setLessonsLearned(lessonsRes.data || []);
+      
+      if (orgsRes.data && orgsRes.data.length > 0) {
+        setOrganisations(orgsRes.data);
+      }
+
+      if (projectsData.length > 0) {
+        if (!activeProjectId || !projectsData.some(p => p.id === activeProjectId)) {
+          setActiveProjectId(projectsData[0].id);
+        }
+      } else {
+        setActiveProjectId(null);
+      }
+    } catch (err: any) {
+      console.warn('Initial data synchronization notice:', err);
+    } finally {
+      setProjectsLoaded(true);
+      setIsLoading(false);
     }
+  }, [activeProjectId, setActiveProjectId]);
 
+  useEffect(() => {
     initializeData();
-
-    return () => {
-      isMounted = false;
-    };
+    testSupabaseConnection().then(setDbHealth);
   }, []);
 
   // Framework Data Loader
@@ -299,29 +240,44 @@ const App: React.FC = () => {
     setIsLoading(true); setError(null);
     try {
       const createdId = `proj_${Date.now()}`;
-      const newProj: Project = { id: createdId, ...projectData, organisationId: activeOrgId };
-      await mealApiClient.saveProject(newProj);
+      const newProj: Project = { id: createdId, ...projectData, organisationId: activeOrgId || 'org_default' };
+      const res = await mealApiClient.saveProject(newProj);
+      if (!res.success) {
+        setError(res.error || "Failed to create project in Supabase.");
+        return;
+      }
       setProjects(prev => [newProj, ...prev]);
       setActiveProjectId(createdId);
       mealStorage.logAudit(activeOrgId, createdId, 'Project Created', 'Project', createdId, `Created project "${projectData.name}"`);
       setActiveAppScreenTab('project_home'); 
       setCurrentMainView(null); 
-    } catch (e: any) { console.error("Error creating project: ", e); setError("Failed to create project."); } 
-    finally { setIsLoading(false); }
+    } catch (e: any) { 
+      console.error("Error creating project: ", e); 
+      setError(e.message || "Failed to create project."); 
+    } finally { 
+      setIsLoading(false); 
+    }
   }, [setActiveProjectId, activeOrgId]);
 
   const handleUpdateProjectDetails = useCallback(async (updatedProjectData: Project) => {
     setIsLoading(true); setError(null);
     try {
-      await mealApiClient.saveProject(updatedProjectData);
+      const res = await mealApiClient.saveProject(updatedProjectData);
+      if (!res.success) {
+        setError(res.error || "Failed to update project in Supabase.");
+        return;
+      }
       setProjects(prev => prev.map(p => p.id === updatedProjectData.id ? updatedProjectData : p));
       mealStorage.logAudit(activeOrgId, updatedProjectData.id, 'Project Details Updated', 'Project', updatedProjectData.id, `Updated "${updatedProjectData.name}"`);
-    } catch (e: any) { console.error("Error updating project: ", e); setError("Failed to update project details."); } 
-    finally { setIsLoading(false); }
+    } catch (e: any) { 
+      console.error("Error updating project: ", e); 
+      setError(e.message || "Failed to update project details."); 
+    } finally { 
+      setIsLoading(false); 
+    }
   }, [activeOrgId]);
   
   const handleDeleteProject = useCallback(async (projectId: string) => {
-    if (!window.confirm("Are you sure? This will delete the project and associated data.")) return;
     setIsLoading(true); setError(null);
     try {
       await mealApiClient.deleteProject(projectId);
@@ -331,8 +287,12 @@ const App: React.FC = () => {
         setActiveProjectId(null); setCurrentMainView(null); setActiveAppScreenTab('home');
       }
       mealStorage.logAudit(activeOrgId, projectId, 'Project Deleted', 'Project', projectId, 'Deleted project and associated indicators');
-    } catch (e: any) { console.error("Error deleting project: ", e); setError("Failed to delete project."); } 
-    finally { setIsLoading(false); }
+    } catch (e: any) { 
+      console.error("Error deleting project: ", e); 
+      setError("Failed to delete project."); 
+    } finally { 
+      setIsLoading(false); 
+    }
   }, [activeProjectId, setActiveProjectId, activeOrgId]);
 
   const handleRoleChange = useCallback((role: UserRole) => {
@@ -345,6 +305,11 @@ const App: React.FC = () => {
     setActiveOrgId(orgId);
     mealStorage.setActiveOrganisationId(orgId);
     mealStorage.logAudit(orgId, undefined, 'Organisation Switched', 'Organisation', orgId, `Switched active organization to ${orgId}`);
+  }, []);
+
+  const handleSignOut = useCallback(async () => {
+    await accessControl.signOut();
+    setCurrentUser(null);
   }, []);
 
   const handleSelectProject = useCallback((projectId: string) => {
@@ -1040,7 +1005,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-neutral-100 text-neutral-800">
-      {/* Institutional Multi-Org & Persona Header */}
+      {/* Institutional Multi-Org & Authentication Header */}
       <div className="bg-neutral-900 text-white px-4 py-2 border-b border-neutral-700 text-xs flex flex-wrap justify-between items-center gap-2 print:hidden">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 font-bold tracking-wider text-sm text-primary-300">
@@ -1050,15 +1015,19 @@ const App: React.FC = () => {
           <span className="text-neutral-500">|</span>
           <div className="flex items-center gap-1.5">
             <span className="text-neutral-400 font-medium">Organisation:</span>
-            <select
-              value={activeOrgId}
-              onChange={(e) => handleOrgChange(e.target.value)}
-              className="bg-neutral-800 text-neutral-200 border border-neutral-700 rounded px-2 py-0.5 text-xs font-semibold focus:outline-none focus:border-primary-400 cursor-pointer"
-            >
-              {organisations.map(org => (
-                <option key={org.id} value={org.id}>{org.name}</option>
-              ))}
-            </select>
+            {organisations.length > 0 ? (
+              <select
+                value={activeOrgId}
+                onChange={(e) => handleOrgChange(e.target.value)}
+                className="bg-neutral-800 text-neutral-200 border border-neutral-700 rounded px-2 py-0.5 text-xs font-semibold focus:outline-none focus:border-primary-400 cursor-pointer"
+              >
+                {organisations.map(org => (
+                  <option key={org.id} value={org.id}>{org.name}</option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-neutral-400 italic">No organisation yet</span>
+            )}
           </div>
           {activeProject && (
             <>
@@ -1072,25 +1041,6 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Active Persona Switcher */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-neutral-400 font-medium">Role:</span>
-            <select
-              value={activeRole}
-              onChange={(e) => handleRoleChange(e.target.value as UserRole)}
-              className="bg-neutral-800 text-primary-300 border border-neutral-700 rounded px-2 py-0.5 text-xs font-semibold focus:outline-none cursor-pointer"
-            >
-              <option value="meal_officer">MEAL Officer (Default)</option>
-              <option value="meal_manager">MEAL Manager / Lead</option>
-              <option value="project_manager">Project Manager</option>
-              <option value="field_enumerator">Field Enumerator</option>
-              <option value="data_verifier">Data Quality Verifier</option>
-              <option value="safeguarding_lead">Safeguarding / FCM Lead</option>
-              <option value="donor_representative">Donor Representative</option>
-              <option value="administrator">System Administrator</option>
-            </select>
-          </div>
-
           {/* Backend Status Indicator */}
           <div className="flex items-center gap-1.5">
             <span className="inline-flex items-center gap-1.5 bg-emerald-950 text-emerald-300 border border-emerald-800 px-2.5 py-0.5 rounded-full text-[11px] font-medium" title="Supabase PostgreSQL Project xojheaczfnlsszghykej connected">
@@ -1104,27 +1054,69 @@ const App: React.FC = () => {
               {showDbDetails ? 'Hide Info' : 'Backend Info'}
             </button>
           </div>
+
+          <span className="text-neutral-600">|</span>
+
+          {/* User Session & Role Controls */}
+          {currentUser ? (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-neutral-800 border border-neutral-700 px-2.5 py-0.5 rounded text-neutral-200">
+                <span className="w-4 h-4 rounded-full bg-primary-700 text-white flex items-center justify-center font-bold text-[9px]">
+                  {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                </span>
+                <span className="font-medium text-xs text-white max-w-[120px] truncate">{currentUser.name || currentUser.email}</span>
+                <span className="px-1.5 py-0.2 bg-emerald-900/80 text-emerald-300 border border-emerald-700/60 rounded text-[10px] uppercase font-semibold">
+                  {currentUser.role.replace('_', ' ')}
+                </span>
+              </div>
+              <button
+                onClick={handleSignOut}
+                className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white px-2 py-0.5 rounded border border-neutral-700 text-xs font-medium cursor-pointer transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-neutral-400 text-xs">Guest Mode</span>
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="bg-primary hover:bg-primary-600 text-white px-2.5 py-0.5 rounded text-xs font-semibold cursor-pointer shadow-xs transition-colors"
+              >
+                Sign In / Register
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Collapsible Supabase Backend Info Banner */}
       {showDbDetails && !dismissDbBanner && (
         <div className="bg-sky-50 border-b border-sky-200 px-4 py-3 text-xs text-sky-950 flex justify-between items-start print:hidden">
-          <div className="flex-1 pr-4">
-            <p className="font-bold text-sky-900 mb-1 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              Supabase PostgreSQL Backend Active
+          <div className="flex-1 pr-4 space-y-1.5">
+            <p className="font-bold text-sky-900 flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${dbHealth?.writeAllowed ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+              Supabase PostgreSQL Backend: {dbHealth?.writeAllowed ? 'Read & Write Active' : 'Read Active (Writes Restricted by RLS)'}
             </p>
-            <p className="text-sky-800 mb-1">
+            <p className="text-sky-800">
               Project Endpoint: <code className="bg-sky-100 text-sky-900 px-1 py-0.5 rounded font-mono">https://xojheaczfnlsszghykej.supabase.co</code>
             </p>
+            {dbHealth?.rlsNotice && (
+              <div className="p-2.5 bg-amber-50 border border-amber-300 rounded text-amber-900 text-xs">
+                <span className="font-bold block mb-1">Row-Level Security (RLS) Write Access Notice:</span>
+                {dbHealth.rlsNotice}
+                <div className="mt-1 text-neutral-600">
+                  Script provided in workspace: <code>fix_rls_policies.sql</code>
+                </div>
+              </div>
+            )}
             <p className="text-sky-700">
-              The frontend is actively connected to your Supabase instance with resilient caching. Run the pre-built SQL script in <code>supabase_schema.sql</code> in your Supabase SQL Editor to initialize all tables and Row-Level Security policies.
+              Live queries directly synchronize with Supabase. Zero mock data or hardcoded demonstration records are active.
             </p>
           </div>
           <button
             onClick={() => setDismissDbBanner(true)}
-            className="text-sky-800 hover:text-sky-950 font-bold px-2 py-1 bg-sky-100 hover:bg-sky-200 rounded text-xs"
+            className="text-sky-800 hover:text-sky-950 font-bold px-2 py-1 bg-sky-100 hover:bg-sky-200 rounded text-xs ml-2 cursor-pointer"
           >
             Dismiss
           </button>
@@ -1233,6 +1225,13 @@ const App: React.FC = () => {
           projectId={(modalState.data as ModalDataLessonLearned).projectId}
         />
       )}
+
+      {/* --- Authentication Modal --- */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={initializeData}
+      />
     </div>
   );
 };

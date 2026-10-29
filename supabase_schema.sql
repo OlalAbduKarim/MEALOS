@@ -314,21 +314,58 @@ ALTER TABLE public.meal_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- Standard Public Access Policies for Anon / Authenticated Users
-CREATE POLICY "Allow public read access to organisations" ON public.organisations FOR SELECT USING (true);
-CREATE POLICY "Allow public all access to projects" ON public.projects FOR ALL USING (true);
-CREATE POLICY "Allow public all access to indicators" ON public.indicators FOR ALL USING (true);
-CREATE POLICY "Allow public all access to data_points" ON public.data_points FOR ALL USING (true);
-CREATE POLICY "Allow public all access to theories_of_change" ON public.theories_of_change FOR ALL USING (true);
-CREATE POLICY "Allow public all access to logical_frameworks" ON public.logical_frameworks FOR ALL USING (true);
-CREATE POLICY "Allow public all access to results_chains" ON public.results_chains FOR ALL USING (true);
-CREATE POLICY "Allow public all access to collection_forms" ON public.collection_forms FOR ALL USING (true);
-CREATE POLICY "Allow public all access to form_submissions" ON public.form_submissions FOR ALL USING (true);
-CREATE POLICY "Allow public all access to safeguarding_complaints" ON public.safeguarding_complaints FOR ALL USING (true);
-CREATE POLICY "Allow public all access to risk_items" ON public.risk_items FOR ALL USING (true);
-CREATE POLICY "Allow public all access to evaluations" ON public.evaluations FOR ALL USING (true);
-CREATE POLICY "Allow public all access to success_stories" ON public.success_stories FOR ALL USING (true);
-CREATE POLICY "Allow public all access to lessons_learned" ON public.lessons_learned FOR ALL USING (true);
-CREATE POLICY "Allow public all access to geo_sites" ON public.geo_sites FOR ALL USING (true);
-CREATE POLICY "Allow public all access to meal_reports" ON public.meal_reports FOR ALL USING (true);
-CREATE POLICY "Allow public read and insert on audit_logs" ON public.audit_logs FOR SELECT USING (true);
-CREATE POLICY "Allow public insert on audit_logs" ON public.audit_logs FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public read access to organisations" ON public.organisations;
+DROP POLICY IF EXISTS "Allow public all access to organisations" ON public.organisations;
+CREATE POLICY "Allow public all access to organisations" ON public.organisations FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to user_profiles" ON public.user_profiles;
+CREATE POLICY "Allow public all access to user_profiles" ON public.user_profiles FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to projects" ON public.projects;
+CREATE POLICY "Allow public all access to projects" ON public.projects FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to indicators" ON public.indicators;
+CREATE POLICY "Allow public all access to indicators" ON public.indicators FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to data_points" ON public.data_points;
+CREATE POLICY "Allow public all access to data_points" ON public.data_points FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to theories_of_change" ON public.theories_of_change;
+CREATE POLICY "Allow public all access to theories_of_change" ON public.theories_of_change FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to logical_frameworks" ON public.logical_frameworks;
+CREATE POLICY "Allow public all access to logical_frameworks" ON public.logical_frameworks FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to results_chains" ON public.results_chains;
+CREATE POLICY "Allow public all access to results_chains" ON public.results_chains FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to collection_forms" ON public.collection_forms;
+CREATE POLICY "Allow public all access to collection_forms" ON public.collection_forms FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to form_submissions" ON public.form_submissions;
+CREATE POLICY "Allow public all access to form_submissions" ON public.form_submissions FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to safeguarding_complaints" ON public.safeguarding_complaints;
+CREATE POLICY "Allow public all access to safeguarding_complaints" ON public.safeguarding_complaints FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to risk_items" ON public.risk_items;
+CREATE POLICY "Allow public all access to risk_items" ON public.risk_items FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to evaluations" ON public.evaluations;
+CREATE POLICY "Allow public all access to evaluations" ON public.evaluations FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to success_stories" ON public.success_stories;
+CREATE POLICY "Allow public all access to success_stories" ON public.success_stories FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to lessons_learned" ON public.lessons_learned;
+CREATE POLICY "Allow public all access to lessons_learned" ON public.lessons_learned FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to geo_sites" ON public.geo_sites;
+CREATE POLICY "Allow public all access to geo_sites" ON public.geo_sites FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all access to meal_reports" ON public.meal_reports;
+CREATE POLICY "Allow public all access to meal_reports" ON public.meal_reports FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read and insert on audit_logs" ON public.audit_logs;
+DROP POLICY IF EXISTS "Allow public insert on audit_logs" ON public.audit_logs;
+CREATE POLICY "Allow public all access to audit_logs" ON public.audit_logs FOR ALL USING (true) WITH CHECK (true);
